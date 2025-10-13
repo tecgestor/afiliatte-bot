@@ -49,10 +49,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/seu-usuario/affiliate-bot.git"
+    "url": "https://github.com/tecgestor/affiliate-bot.git"
   },
   "bugs": {
-    "url": "https://github.com/seu-usuario/affiliate-bot/issues"
+    "url": "https://github.com/tecgestor/affiliate-bot/issues"
   },
-  "homepage": "https://github.com/seu-usuario/affiliate-bot#readme"
+  "homepage": "https://github.com/tecgestor/affiliate-bot#readme"
 }
