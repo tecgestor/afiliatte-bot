@@ -1,36 +1,33 @@
 # 🤖 Affiliate Bot Backend
 
-Backend API para robô de afiliados com integração WhatsApp, scraping automatizado e sistema de comissões inteligente.
+Backend completo do robô de afiliados automatizado com WhatsApp.
 
-## 🚀 Tecnologias
+## 🚀 Funcionalidades
 
-- **Node.js** - Runtime JavaScript
-- **Express.js** - Framework web
-- **MongoDB** - Banco de dados NoSQL
-- **Mongoose** - ODM para MongoDB
-- **JWT** - Autenticação segura
-- **Joi** - Validação de dados
-- **Axios** - Cliente HTTP
-- **Bcrypt** - Hash de senhas
+- **API RESTful** completa
+- **Scraping automatizado** (ML + Shopee)
+- **Gestão de produtos** com aprovação
+- **Templates de mensagem** dinâmicos
+- **Integração WhatsApp** (Evolution API)
+- **Sistema de usuários** com roles
+- **Histórico completo** de atividades
+- **Configurações avançadas** do robô
 
-## 📁 Estrutura
+## 📦 Tecnologias
 
-```
-src/
-├── controllers/     # Controllers (OOP)
-├── models/         # Models Mongoose
-├── services/       # Serviços de negócio
-├── routes/         # Rotas da API
-├── middleware/     # Middlewares
-├── database/       # Conexão banco
-└── utils/          # Utilitários
-```
+- **Node.js** + **Express.js**
+- **MongoDB** + **Mongoose**
+- **JWT** para autenticação
+- **Bcrypt** para senhas
+- **Puppeteer** para scraping
+- **Winston** para logs
+- **Joi** para validação
 
-## 🔧 Instalação
+## 🚀 Instalação
 
 ```bash
 # Clonar repositório
-git clone <url>
+git clone https://github.com/seu-usuario/affiliate-bot-backend.git
 cd affiliate-bot-backend
 
 # Instalar dependências
@@ -38,90 +35,61 @@ npm install
 
 # Configurar variáveis
 cp .env.example .env
-# Edite o .env com suas configurações
-
-# Executar seeding
-npm run seed
-
-# Iniciar desenvolvimento
-npm run dev
 ```
 
-## 🌍 Deploy
+## ⚙️ Configuração
 
-### Render.com (Gratuito)
-1. Conectar repositório GitHub
-2. Configurar variáveis de ambiente
-3. Deploy automático
+Edite `.env`:
 
-### Variáveis Obrigatórias
-- `MONGODB_URI` - String conexão MongoDB
-- `JWT_SECRET` - Chave JWT (32+ chars)
-- `NODE_ENV` - production
-
-## 📊 API Endpoints
-
-### Autenticação
-- `POST /api/auth/login` - Login usuário
-- `POST /api/auth/register` - Registrar usuário
-
-### Produtos
-- `GET /api/products` - Listar produtos
-- `POST /api/products` - Criar produto
-- `PATCH /api/products/:id/approve` - Aprovar produto
-
-### Robô
-- `GET /api/robot/status` - Status do robô
-- `POST /api/robot/run` - Executar ciclo
-- `POST /api/robot/scraping/run` - Scraping manual
-
-## 🤖 Funcionalidades
-
-### ✅ Scraping Automatizado
-- Mercado Livre API
-- Shopee (simulado)
-- Filtros de qualidade
-- Rate limiting inteligente
-
-### ✅ Sistema de Comissões
-- Cálculo automático
-- Classificação por qualidade
-- Aprovação manual
-
-### ✅ WhatsApp Integration
-- Evolution API
-- Envio com retry
-- Templates personalizáveis
-
-### ✅ Segurança
-- JWT Authentication
-- Rate limiting
-- Validação Joi
-- Middleware de segurança
-
-## 🔒 Autenticação
-
-```javascript
-// Headers necessários
-{
-  "Authorization": "Bearer <jwt_token>",
-  "Content-Type": "application/json"
-}
+```env
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/affiliatebot
+JWT_SECRET=sua-chave-secreta-de-32-caracteres-minimo
+FRONTEND_URL=https://seu-frontend.vercel.app
 ```
 
-## 📈 Monitoramento
-
-- Health check: `/api/health`
-- Status robô: `/api/robot/status`
-- Logs estruturados
-- Error handling robusto
-
-## 🧪 Testes
+## 🖥️ Scripts
 
 ```bash
+# Desenvolvimento
+npm run dev
+
+# Produção
+npm start
+
+# Seed do banco
+npm run seed
+
+# Testes
 npm test
 ```
 
-## 📝 Licença
+## 🌐 Deploy
 
-MIT License - veja LICENSE para detalhes.
+### Render (Gratuito)
+
+1. **Conectar GitHub** ao Render
+2. **Configurar variáveis** de ambiente
+3. **Deploy automático**
+
+## 📊 API Endpoints
+
+```
+POST /api/auth/login          # Login
+GET  /api/products            # Listar produtos
+POST /api/products            # Criar produto
+GET  /api/robot/status        # Status do robô
+POST /api/robot/run           # Executar robô
+GET  /api/templates           # Listar templates
+GET  /api/groups              # Listar grupos
+GET  /api/history             # Histórico
+```
+
+## 🔐 Autenticação
+
+- **JWT tokens** com expiração de 7 dias
+- **Roles:** user, admin
+- **Middleware** de autenticação automático
+
+## 📄 Licença
+
+MIT License

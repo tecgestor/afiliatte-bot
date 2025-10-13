@@ -1,174 +1,58 @@
 const BaseController = require('./BaseController');
 const { Product } = require('../models');
-const Joi = require('joi');
+const AffiliateRobotService = require('../services/AffiliateRobotService');
 
-/**
- * Controller para gerenciar produtos de afiliados
- */
 class ProductController extends BaseController {
   constructor() {
-    super(Product, 'Product');
+    super();
+    this.robotService = new AffiliateRobotService();
   }
 
   /**
-   * Schema de validação para criação de produto
+   * Listar produtos com filtros e paginação
    */
-  getCreateValidationSchema() {
-    return Joi.object({
-      platformId: Joi.string().required(),
-      platform: Joi.string().valid('mercadolivre', 'shopee', 'amazon', 'magazineluiza').required(),
-      title: Joi.string().max(200).required(),
-      description: Joi.string().max(1000),
-      category: Joi.string().valid('electronics', 'home', 'beauty', 'fashion', 'sports', 'books', 'games', 'other').required(),
-      price: Joi.number().min(0).required(),
-      originalPrice: Joi.number().min(0),
-      commissionRate: Joi.number().min(0).max(1).required(),
-      rating: Joi.number().min(0).max(5),
-      reviewsCount: Joi.number().min(0),
-      salesCount: Joi.number().min(0),
-      productUrl: Joi.string().uri().required(),
-      affiliateLink: Joi.string().uri().required(),
-      imageUrl: Joi.string().uri(),
-      seller: Joi.object({
-        name: Joi.string(),
-        rating: Joi.number().min(0).max(5),
-        isVerified: Joi.boolean()
-      })
-    });
-  }
+  getAll = this.handleAsync(async (req, res) => {
+    const { page, limit, skip } = this.getPaginationOptions(req);
 
-  /**
-   * POST - Criar produto com validação
-   */
-  async create(req, res) {
-    try {
-      const { error, value } = this.getCreateValidationSchema().validate(req.body);
-      if (error) {
-        return this.sendError(res, new Error(error.details[0].message), 400);
-      }
+    // Filtros permitidos
+    const filters = {};
+    const allowedFilters = ['category', 'platform', 'isApproved', 'commissionQuality'];
+    this.applyFilters(filters, req.query, allowedFilters);
 
-      // Calcular comissão estimada
-      value.estimatedCommission = value.price * value.commissionRate;
-
-      // Determinar qualidade da comissão
-      if (value.estimatedCommission >= 50) {
-        value.commissionQuality = 'excelente';
-      } else if (value.estimatedCommission >= 25) {
-        value.commissionQuality = 'boa';
-      } else if (value.estimatedCommission >= 10) {
-        value.commissionQuality = 'regular';
-      } else {
-        value.commissionQuality = 'baixa';
-      }
-
-      const product = await this.model.create(value);
-      return this.sendSuccess(res, product, 'Produto criado com sucesso', 201);
-    } catch (error) {
-      return this.sendError(res, error);
+    // Filtros especiais
+    if (req.query.minPrice) {
+      filters.price = { $gte: parseFloat(req.query.minPrice) };
     }
-  }
-
-  /**
-   * GET - Buscar produtos com boa comissão
-   */
-  async getGoodCommissionProducts(req, res) {
-    try {
-      const { category, platform, page = 1, limit = 10 } = req.query;
-
-      const filters = {
-        commissionQuality: { $in: ['excelente', 'boa'] },
-        isApproved: true
-      };
-
-      if (category) filters.category = category;
-      if (platform) filters.platform = platform;
-
-      const options = {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        sort: '-estimatedCommission'
-      };
-
-      const result = await this.model.paginate ? 
-        await this.model.paginate(filters, options) :
-        await this.manualPaginate(filters, options);
-
-      return this.sendSuccess(res, result, 'Produtos com boa comissão listados com sucesso');
-    } catch (error) {
-      return this.sendError(res, error);
+    if (req.query.maxPrice) {
+      filters.price = { ...filters.price, $lte: parseFloat(req.query.maxPrice) };
     }
-  }
-
-  /**
-   * PATCH - Aprovar produto
-   */
-  async approveProduct(req, res) {
-    try {
-      const { id } = req.params;
-
-      if (!this.validateObjectId(id)) {
-        return this.sendError(res, new Error('ID inválido'), 400);
-      }
-
-      const product = await this.model.findByIdAndUpdate(
-        id, 
-        { 
-          isApproved: true,
-          approvedAt: new Date()
-        }, 
-        { new: true }
-      );
-
-      if (!product) {
-        return this.sendError(res, new Error('Produto não encontrado'), 404);
-      }
-
-      return this.sendSuccess(res, product, 'Produto aprovado com sucesso');
-    } catch (error) {
-      return this.sendError(res, error);
+    if (req.query.minRating) {
+      filters.rating = { $gte: parseFloat(req.query.minRating) };
     }
-  }
-
-  /**
-   * GET - Produtos por categoria
-   */
-  async getByCategory(req, res) {
-    try {
-      const { category } = req.params;
-      const { page = 1, limit = 10 } = req.query;
-
-      const options = {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        sort: '-createdAt'
-      };
-
-      const result = await this.model.paginate ? 
-        await this.model.paginate({ category }, options) :
-        await this.manualPaginate({ category }, options);
-
-      return this.sendSuccess(res, result, `Produtos da categoria ${category} listados com sucesso`);
-    } catch (error) {
-      return this.sendError(res, error);
+    if (req.query.search) {
+      filters.title = new RegExp(req.query.search, 'i');
     }
-  }
 
-  /**
-   * Paginação manual para quando mongoose-paginate não está disponível
-   */
-  async manualPaginate(filters, options) {
-    const { page, limit, sort } = options;
-    const skip = (page - 1) * limit;
+    // Ordenação
+    const sortOptions = {};
+    if (req.query.sortBy) {
+      const sortDirection = req.query.sortOrder === 'desc' ? -1 : 1;
+      sortOptions[req.query.sortBy] = sortDirection;
+    } else {
+      sortOptions.scrapedAt = -1; // Mais recentes primeiro
+    }
 
-    const documents = await this.model.find(filters)
-      .sort(sort || '-createdAt')
-      .limit(limit)
-      .skip(skip);
+    const [products, total] = await Promise.all([
+      Product.find(filters)
+        .populate('approvedBy', 'name email')
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(filters)
+    ]);
 
-    const total = await this.model.countDocuments(filters);
-
-    return {
-      docs: documents,
+    const pagination = {
       totalDocs: total,
       limit,
       page,
@@ -176,7 +60,229 @@ class ProductController extends BaseController {
       hasNextPage: page < Math.ceil(total / limit),
       hasPrevPage: page > 1
     };
-  }
+
+    return this.paginatedResponse(res, products, pagination);
+  });
+
+  /**
+   * Buscar produto por ID
+   */
+  getById = this.handleAsync(async (req, res) => {
+    const { id } = req.params;
+
+    const product = await Product.findById(id)
+      .populate('approvedBy', 'name email');
+
+    if (!product) {
+      return this.errorResponse(res, 'Produto não encontrado', 404);
+    }
+
+    return this.successResponse(res, product);
+  });
+
+  /**
+   * Criar novo produto
+   */
+  create = this.handleAsync(async (req, res) => {
+    this.validateRequiredFields(req.body, [
+      'title', 'price', 'category', 'platform', 'productUrl', 'affiliateLink'
+    ]);
+
+    const productData = {
+      ...req.body,
+      scrapedAt: new Date()
+    };
+
+    const product = new Product(productData);
+    await product.save();
+
+    return this.successResponse(res, product, 'Produto criado com sucesso', 201);
+  });
+
+  /**
+   * Atualizar produto
+   */
+  update = this.handleAsync(async (req, res) => {
+    const { id } = req.params;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return this.errorResponse(res, 'Produto não encontrado', 404);
+    }
+
+    Object.assign(product, req.body);
+    await product.save();
+
+    return this.successResponse(res, product, 'Produto atualizado com sucesso');
+  });
+
+  /**
+   * Aprovar produto
+   */
+  approve = this.handleAsync(async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return this.errorResponse(res, 'Produto não encontrado', 404);
+    }
+
+    if (product.isApproved) {
+      return this.errorResponse(res, 'Produto já está aprovado', 400);
+    }
+
+    await product.approve(userId);
+
+    return this.successResponse(res, product, 'Produto aprovado com sucesso');
+  });
+
+  /**
+   * Excluir produto
+   */
+  delete = this.handleAsync(async (req, res) => {
+    const { id } = req.params;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      return this.errorResponse(res, 'Produto não encontrado', 404);
+    }
+
+    await Product.findByIdAndDelete(id);
+
+    return this.successResponse(res, null, 'Produto excluído com sucesso');
+  });
+
+  /**
+   * Buscar produtos por categoria
+   */
+  getByCategory = this.handleAsync(async (req, res) => {
+    const { category } = req.params;
+    const { page, limit, skip } = this.getPaginationOptions(req);
+
+    const filters = { category };
+    if (req.query.approved === 'true') {
+      filters.isApproved = true;
+    }
+
+    const [products, total] = await Promise.all([
+      Product.find(filters)
+        .sort({ rating: -1, salesCount: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(filters)
+    ]);
+
+    const pagination = {
+      totalDocs: total,
+      limit,
+      page,
+      totalPages: Math.ceil(total / limit)
+    };
+
+    return this.paginatedResponse(res, products, pagination);
+  });
+
+  /**
+   * Buscar produtos com boa comissão
+   */
+  getGoodCommission = this.handleAsync(async (req, res) => {
+    const { page, limit, skip } = this.getPaginationOptions(req);
+
+    const filters = {
+      commissionQuality: { $in: ['excelente', 'boa'] },
+      isApproved: true
+    };
+
+    const [products, total] = await Promise.all([
+      Product.find(filters)
+        .sort({ estimatedCommission: -1, rating: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(filters)
+    ]);
+
+    const pagination = {
+      totalDocs: total,
+      limit,
+      page,
+      totalPages: Math.ceil(total / limit)
+    };
+
+    return this.paginatedResponse(res, products, pagination);
+  });
+
+  /**
+   * Executar scraping manual
+   */
+  scrapeProducts = this.handleAsync(async (req, res) => {
+    const { categories = ['electronics'], platforms = ['mercadolivre'], limit = 20 } = req.body;
+
+    try {
+      console.log('🔍 Iniciando scraping manual:', { categories, platforms, limit });
+
+      const results = await this.robotService.runScraping({
+        categories,
+        platforms,
+        limit,
+        saveToDatabase: true
+      });
+
+      return this.successResponse(res, results, 'Scraping executado com sucesso');
+    } catch (error) {
+      console.error('❌ Erro no scraping:', error);
+      return this.errorResponse(res, error.message, 500);
+    }
+  });
+
+  /**
+   * Estatísticas de produtos
+   */
+  getStats = this.handleAsync(async (req, res) => {
+    const stats = await Product.aggregate([
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          approved: { $sum: { $cond: ['$isApproved', 1, 0] } },
+          avgPrice: { $avg: '$price' },
+          avgCommission: { $avg: '$estimatedCommission' },
+          avgRating: { $avg: '$rating' }
+        }
+      }
+    ]);
+
+    const categoryStats = await Product.aggregate([
+      {
+        $group: {
+          _id: '$category',
+          count: { $sum: 1 },
+          avgPrice: { $avg: '$price' },
+          avgCommission: { $avg: '$estimatedCommission' }
+        }
+      }
+    ]);
+
+    const platformStats = await Product.aggregate([
+      {
+        $group: {
+          _id: '$platform',
+          count: { $sum: 1 },
+          avgPrice: { $avg: '$price' }
+        }
+      }
+    ]);
+
+    const result = {
+      general: stats[0] || {},
+      byCategory: categoryStats,
+      byPlatform: platformStats
+    };
+
+    return this.successResponse(res, result);
+  });
 }
 
-module.exports = new ProductController();
+module.exports = ProductController;

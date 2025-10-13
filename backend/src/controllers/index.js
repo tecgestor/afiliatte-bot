@@ -1,19 +1,9 @@
-/**
- * Exporta todos os controllers da aplicação
- */
-
-const ProductController = require('./ProductController');
-const GroupController = require('./GroupController');
-const MessageTemplateController = require('./MessageTemplateController');
-const SendHistoryController = require('./SendHistoryController');
-const UserController = require('./UserController');
 const BaseController = require('./BaseController');
+const ProductController = require('./ProductController');
+const UserController = require('./UserController');
 
 module.exports = {
+  BaseController,
   ProductController,
-  GroupController,
-  MessageTemplateController,
-  SendHistoryController,
-  UserController,
-  BaseController
+  UserController
 };

@@ -1,171 +1,118 @@
-const mongoose = require('mongoose');
-
-/**
- * Controlador base abstrato com funcionalidades CRUD comuns
- */
 class BaseController {
-  constructor(model, modelName) {
-    if (new.target === BaseController) {
-      throw new Error('BaseController é uma classe abstrata');
-    }
-    this.model = model;
-    this.modelName = modelName;
+  constructor() {
+    this.handleAsync = this.handleAsync.bind(this);
   }
 
   /**
-   * Validar ObjectId do MongoDB
+   * Wrapper para tratar erros assíncronos
+   * @param {Function} fn - Função assíncrona
    */
-  validateObjectId(id) {
-    return mongoose.Types.ObjectId.isValid(id);
+  handleAsync(fn) {
+    return (req, res, next) => {
+      Promise.resolve(fn(req, res, next)).catch(next);
+    };
   }
 
   /**
-   * Enviar resposta de sucesso
+   * Resposta de sucesso padronizada
+   * @param {Object} res - Response object
+   * @param {*} data - Dados para retornar  
+   * @param {String} message - Mensagem de sucesso
+   * @param {Number} statusCode - Código de status
    */
-  sendSuccess(res, data, message = 'Operação realizada com sucesso', statusCode = 200) {
+  successResponse(res, data = null, message = 'Operação realizada com sucesso', statusCode = 200) {
     return res.status(statusCode).json({
       success: true,
       message,
-      data
+      data,
+      timestamp: new Date().toISOString()
     });
   }
 
   /**
-   * Enviar resposta de erro
+   * Resposta de erro padronizada
+   * @param {Object} res - Response object
+   * @param {String} message - Mensagem de erro
+   * @param {Number} statusCode - Código de status
+   * @param {*} error - Detalhes do erro
    */
-  sendError(res, error, statusCode = 500) {
-    console.error(`Erro no ${this.modelName}Controller:`, error);
-
-    return res.status(statusCode).json({
+  errorResponse(res, message = 'Erro interno do servidor', statusCode = 500, error = null) {
+    const response = {
       success: false,
-      message: error.message || 'Erro interno do servidor'
+      message,
+      timestamp: new Date().toISOString()
+    };
+
+    if (process.env.NODE_ENV === 'development' && error) {
+      response.error = error;
+    }
+
+    return res.status(statusCode).json(response);
+  }
+
+  /**
+   * Resposta paginada padronizada
+   * @param {Object} res - Response object
+   * @param {Array} docs - Documentos
+   * @param {Object} pagination - Informações de paginação
+   * @param {String} message - Mensagem
+   */
+  paginatedResponse(res, docs, pagination, message = 'Dados recuperados com sucesso') {
+    return res.status(200).json({
+      success: true,
+      message,
+      data: {
+        docs,
+        ...pagination
+      },
+      timestamp: new Date().toISOString()
     });
   }
 
   /**
-   * GET - Listar todos os documentos
+   * Validar parâmetros obrigatórios
+   * @param {Object} data - Dados para validar
+   * @param {Array} requiredFields - Campos obrigatórios
    */
-  async getAll(req, res) {
-    try {
-      const { page = 1, limit = 10, sort = '-createdAt' } = req.query;
+  validateRequiredFields(data, requiredFields) {
+    const missingFields = requiredFields.filter(field => !data[field]);
 
-      const options = {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        sort
-      };
-
-      let result;
-      if (this.model.paginate) {
-        result = await this.model.paginate({}, options);
-      } else {
-        const documents = await this.model.find()
-          .sort(sort)
-          .limit(parseInt(limit))
-          .skip((parseInt(page) - 1) * parseInt(limit));
-
-        const total = await this.model.countDocuments();
-
-        result = {
-          docs: documents,
-          totalDocs: total,
-          limit: parseInt(limit),
-          page: parseInt(page),
-          totalPages: Math.ceil(total / parseInt(limit))
-        };
-      }
-
-      return this.sendSuccess(res, result, `${this.modelName}s listados com sucesso`);
-    } catch (error) {
-      return this.sendError(res, error);
+    if (missingFields.length > 0) {
+      throw new Error(`Campos obrigatórios faltando: ${missingFields.join(', ')}`);
     }
   }
 
   /**
-   * GET - Buscar por ID
+   * Aplicar filtros de busca
+   * @param {Object} query - Query base
+   * @param {Object} filters - Filtros a aplicar
+   * @param {Array} allowedFilters - Filtros permitidos
    */
-  async getById(req, res) {
-    try {
-      const { id } = req.params;
-
-      if (!this.validateObjectId(id)) {
-        return this.sendError(res, new Error('ID inválido'), 400);
+  applyFilters(query, filters, allowedFilters) {
+    Object.keys(filters).forEach(key => {
+      if (allowedFilters.includes(key) && filters[key]) {
+        if (typeof filters[key] === 'string') {
+          query[key] = new RegExp(filters[key], 'i');
+        } else {
+          query[key] = filters[key];
+        }
       }
+    });
 
-      const document = await this.model.findById(id);
-
-      if (!document) {
-        return this.sendError(res, new Error(`${this.modelName} não encontrado`), 404);
-      }
-
-      return this.sendSuccess(res, document, `${this.modelName} encontrado com sucesso`);
-    } catch (error) {
-      return this.sendError(res, error);
-    }
+    return query;
   }
 
   /**
-   * POST - Criar novo documento
+   * Configurar paginação
+   * @param {Object} req - Request object
+   * @param {Number} defaultLimit - Limite padrão
    */
-  async create(req, res) {
-    try {
-      const document = new this.model(req.body);
-      const savedDocument = await document.save();
+  getPaginationOptions(req, defaultLimit = 10) {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || defaultLimit));
+    const skip = (page - 1) * limit;
 
-      return this.sendSuccess(res, savedDocument, `${this.modelName} criado com sucesso`, 201);
-    } catch (error) {
-      return this.sendError(res, error);
-    }
-  }
-
-  /**
-   * PUT - Atualizar por ID
-   */
-  async updateById(req, res) {
-    try {
-      const { id } = req.params;
-
-      if (!this.validateObjectId(id)) {
-        return this.sendError(res, new Error('ID inválido'), 400);
-      }
-
-      const document = await this.model.findByIdAndUpdate(
-        id,
-        req.body,
-        { new: true, runValidators: true }
-      );
-
-      if (!document) {
-        return this.sendError(res, new Error(`${this.modelName} não encontrado`), 404);
-      }
-
-      return this.sendSuccess(res, document, `${this.modelName} atualizado com sucesso`);
-    } catch (error) {
-      return this.sendError(res, error);
-    }
-  }
-
-  /**
-   * DELETE - Remover por ID
-   */
-  async deleteById(req, res) {
-    try {
-      const { id } = req.params;
-
-      if (!this.validateObjectId(id)) {
-        return this.sendError(res, new Error('ID inválido'), 400);
-      }
-
-      const document = await this.model.findByIdAndDelete(id);
-
-      if (!document) {
-        return this.sendError(res, new Error(`${this.modelName} não encontrado`), 404);
-      }
-
-      return this.sendSuccess(res, document, `${this.modelName} removido com sucesso`);
-    } catch (error) {
-      return this.sendError(res, error);
-    }
+    return { page, limit, skip };
   }
 }
 

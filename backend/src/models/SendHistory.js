@@ -1,106 +1,159 @@
 const mongoose = require('mongoose');
 
-/**
- * Schema para histórico de envios de mensagens
- */
 const sendHistorySchema = new mongoose.Schema({
-  // Referências
-  product: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Product',
-    required: true,
-    index: true
+  type: {
+    type: String,
+    enum: ['message', 'product_capture', 'robot_execution'],
+    required: [true, 'Tipo é obrigatório']
   },
+
+  // Para mensagens
   group: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Group',
-    required: true,
-    index: true
+    ref: 'Group'
+  },
+  product: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product'
   },
   messageTemplate: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'MessageTemplate',
-    required: true
+    ref: 'MessageTemplate'
   },
-
-  // Detalhes do envio
-  sentAt: {
-    type: Date,
-    default: Date.now,
-    index: true
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'sent', 'failed', 'delivered', 'read'],
-    default: 'pending',
-    index: true
-  },
-
-  // Conteúdo da mensagem enviada
   messageContent: {
     type: String,
-    required: true
-  },
-  messageId: {
-    type: String,
-    sparse: true
+    maxlength: [2000, 'Conteúdo da mensagem muito longo']
   },
 
-  // Métricas de engajamento
+  // Status do envio
+  status: {
+    type: String,
+    enum: ['pending', 'sent', 'delivered', 'failed', 'read'],
+    default: 'pending'
+  },
+  sentAt: {
+    type: Date
+  },
+  deliveredAt: {
+    type: Date
+  },
+  readAt: {
+    type: Date
+  },
+
+  // Para capturas de produto
+  action: {
+    type: String,
+    enum: ['found', 'approved', 'rejected', 'sent', 'clicked', 'converted']
+  },
+
+  // Engajamento
   engagement: {
-    clicks: {
-      type: Number,
-      default: 0
-    },
-    reactions: {
-      type: Number,
-      default: 0
-    },
-    replies: {
-      type: Number,
-      default: 0
-    },
-    conversions: {
-      type: Number,
-      default: 0
+    clicks: { type: Number, default: 0 },
+    reactions: { type: Number, default: 0 },
+    replies: { type: Number, default: 0 },
+    shares: { type: Number, default: 0 },
+    engagementRate: { type: Number, default: 0 },
+    lastInteraction: Date
+  },
+
+  // Dados do robô
+  robotExecution: {
+    executionId: String,
+    phase: String,
+    duration: Number,
+    success: Boolean,
+    errorMessage: String,
+    stats: {
+      productsScraped: Number,
+      productsApproved: Number,
+      messagesSent: Number,
+      errors: Number
     }
   },
 
-  // Informações técnicas
-  apiResponse: {
-    success: Boolean,
-    responseData: mongoose.Schema.Types.Mixed,
-    errorMessage: String,
-    httpStatus: Number
+  // Metadados
+  metadata: {
+    platform: String,
+    category: String,
+    userAgent: String,
+    ipAddress: String,
+    whatsappMessageId: String,
+    errorDetails: mongoose.Schema.Types.Mixed
   },
 
-  // Tempo de execução
-  processingTime: {
-    type: Number,
-    default: 0
+  // Usuário responsável
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
-}, { 
-  timestamps: true 
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-// Índices compostos para consultas frequentes
-sendHistorySchema.index({ sentAt: -1, status: 1 });
-sendHistorySchema.index({ product: 1, group: 1 });
+// Índices
+sendHistorySchema.index({ type: 1, status: 1 });
 sendHistorySchema.index({ group: 1, sentAt: -1 });
+sendHistorySchema.index({ product: 1 });
+sendHistorySchema.index({ createdAt: -1 });
+sendHistorySchema.index({ 'robotExecution.executionId': 1 });
 
-// Método estático para estatísticas de engajamento
-sendHistorySchema.statics.getEngagementStats = function(criteria = {}, dateRange = null) {
-  const matchCriteria = { ...criteria };
+// Virtual para duração de entrega
+sendHistorySchema.virtual('deliveryDuration').get(function() {
+  if (this.sentAt && this.deliveredAt) {
+    return this.deliveredAt - this.sentAt;
+  }
+  return null;
+});
 
-  if (dateRange) {
-    matchCriteria.sentAt = {
-      $gte: dateRange.start,
-      $lte: dateRange.end
-    };
+// Método para atualizar status
+sendHistorySchema.methods.updateStatus = function(newStatus, timestamp = new Date()) {
+  this.status = newStatus;
+
+  switch (newStatus) {
+    case 'sent':
+      this.sentAt = timestamp;
+      break;
+    case 'delivered':
+      this.deliveredAt = timestamp;
+      break;
+    case 'read':
+      this.readAt = timestamp;
+      break;
   }
 
-  return this.aggregate([
-    { $match: matchCriteria },
+  return this.save();
+};
+
+// Método para adicionar engajamento
+sendHistorySchema.methods.addEngagement = function(type, count = 1) {
+  if (!this.engagement) {
+    this.engagement = { clicks: 0, reactions: 0, replies: 0, shares: 0 };
+  }
+
+  this.engagement[type] = (this.engagement[type] || 0) + count;
+  this.engagement.lastInteraction = new Date();
+
+  // Calcular taxa de engajamento
+  const totalEngagement = this.engagement.clicks + this.engagement.reactions + 
+                          this.engagement.replies + this.engagement.shares;
+  this.engagement.engagementRate = totalEngagement / 100; // Normalizado por 100 visualizações
+
+  return this.save();
+};
+
+// Statics para relatórios
+sendHistorySchema.statics.getEngagementStats = function(dateRange = {}) {
+  const pipeline = [
+    {
+      $match: {
+        type: 'message',
+        status: { $in: ['sent', 'delivered', 'read'] },
+        ...dateRange
+      }
+    },
     {
       $group: {
         _id: null,
@@ -108,55 +161,31 @@ sendHistorySchema.statics.getEngagementStats = function(criteria = {}, dateRange
         totalClicks: { $sum: '$engagement.clicks' },
         totalReactions: { $sum: '$engagement.reactions' },
         totalReplies: { $sum: '$engagement.replies' },
-        totalConversions: { $sum: '$engagement.conversions' },
-        avgClicks: { $avg: '$engagement.clicks' },
-        avgReactions: { $avg: '$engagement.reactions' },
-        avgProcessingTime: { $avg: '$processingTime' }
+        avgEngagementRate: { $avg: '$engagement.engagementRate' }
+      }
+    }
+  ];
+
+  return this.aggregate(pipeline);
+};
+
+sendHistorySchema.statics.getProductStats = function(dateRange = {}) {
+  const pipeline = [
+    {
+      $match: {
+        type: 'product_capture',
+        ...dateRange
       }
     },
     {
-      $project: {
-        _id: 0,
-        totalMessages: 1,
-        totalClicks: 1,
-        totalReactions: 1,
-        totalReplies: 1,
-        totalConversions: 1,
-        avgClicks: { $round: ['$avgClicks', 2] },
-        avgReactions: { $round: ['$avgReactions', 2] },
-        avgProcessingTime: { $round: ['$avgProcessingTime', 0] },
-        engagementRate: {
-          $cond: {
-            if: { $gt: ['$totalMessages', 0] },
-            then: {
-              $round: [
-                {
-                  $divide: [
-                    { $add: ['$totalClicks', '$totalReactions', '$totalReplies'] },
-                    '$totalMessages'
-                  ]
-                },
-                3
-              ]
-            },
-            else: 0
-          }
-        },
-        conversionRate: {
-          $cond: {
-            if: { $gt: ['$totalMessages', 0] },
-            then: {
-              $round: [
-                { $divide: ['$totalConversions', '$totalMessages'] },
-                3
-              ]
-            },
-            else: 0
-          }
-        }
+      $group: {
+        _id: '$action',
+        count: { $sum: 1 }
       }
     }
-  ]);
+  ];
+
+  return this.aggregate(pipeline);
 };
 
 module.exports = mongoose.model('SendHistory', sendHistorySchema);

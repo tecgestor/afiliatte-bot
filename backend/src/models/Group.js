@@ -1,158 +1,157 @@
 const mongoose = require('mongoose');
 
-/**
- * Schema para grupos de WhatsApp
- */
 const groupSchema = new mongoose.Schema({
-  // Identificação do grupo
-  whatsappId: {
-    type: String,
-    required: true,
-    unique: true,
-    index: true
-  },
   name: {
     type: String,
-    required: true,
+    required: [true, 'Nome do grupo é obrigatório'],
     trim: true,
-    maxlength: 100
+    maxlength: [100, 'Nome muito longo']
   },
   description: {
     type: String,
     trim: true,
-    maxlength: 500
+    maxlength: [500, 'Descrição muito longa']
   },
-
-  // Categoria do grupo
+  whatsappId: {
+    type: String,
+    required: [true, 'ID do WhatsApp é obrigatório'],
+    unique: true,
+    trim: true,
+    match: [/^\d+@g\.us$/, 'ID do WhatsApp inválido (formato: 123456789@g.us)']
+  },
   category: {
     type: String,
-    required: true,
-    enum: ['electronics', 'home', 'beauty', 'fashion', 'sports', 'books', 'games', 'general'],
-    index: true
+    enum: ['electronics', 'beauty', 'home', 'fashion', 'sports', 'books', 'games', 'general'],
+    default: 'general'
   },
-
-  // Configurações de envio
-  isActive: {
-    type: Boolean,
-    default: true,
-    index: true
-  },
-  maxMessagesPerDay: {
+  membersCount: {
     type: Number,
-    default: 5,
-    min: 1,
-    max: 20
+    min: [0, 'Número de membros deve ser positivo'],
+    default: 0
   },
-  sendingEnabled: {
+  isActive: {
     type: Boolean,
     default: true
   },
-
-  // Horários permitidos para envio
+  sendingEnabled: {
+    type: Boolean,
+    default: false
+  },
+  maxMessagesPerDay: {
+    type: Number,
+    min: [1, 'Mínimo 1 mensagem por dia'],
+    max: [50, 'Máximo 50 mensagens por dia'],
+    default: 5
+  },
   allowedHours: {
     start: {
       type: Number,
-      default: 8,
-      min: 0,
-      max: 23
+      min: [0, 'Hora inválida'],
+      max: [23, 'Hora inválida'],
+      default: 8
     },
     end: {
       type: Number,
-      default: 22,
-      min: 0,
-      max: 23
+      min: [0, 'Hora inválida'],
+      max: [23, 'Hora inválida'],
+      default: 22
     }
   },
-
-  // Informações do grupo
-  membersCount: {
-    type: Number,
-    default: 0,
-    min: 0
-  },
-  lastActivityAt: {
-    type: Date,
-    default: Date.now
-  },
-
-  // Template de mensagem vinculado
+  targetCategories: [{
+    type: String,
+    enum: ['electronics', 'beauty', 'home', 'fashion', 'sports', 'books', 'games']
+  }],
+  minCommissionQuality: [{
+    type: String,
+    enum: ['excelente', 'boa', 'regular', 'baixa']
+  }],
   messageTemplate: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'MessageTemplate'
   },
-
-  // Estatísticas de envio
   stats: {
-    totalMessagesSent: {
-      type: Number,
-      default: 0
-    },
-    messagesSentToday: {
-      type: Number,
-      default: 0
-    },
-    lastMessageSentAt: Date,
-    avgEngagementRate: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 1
-    },
-    totalClicks: {
-      type: Number,
-      default: 0
-    },
-    totalConversions: {
-      type: Number,
-      default: 0
-    }
+    totalMessagesSent: { type: Number, default: 0 },
+    messagesSentToday: { type: Number, default: 0 },
+    lastMessageSent: Date,
+    totalClicks: { type: Number, default: 0 },
+    totalReactions: { type: Number, default: 0 },
+    avgEngagementRate: { type: Number, default: 0 },
+    bestPerformingCategory: String,
+    lastResetDate: { type: Date, default: Date.now }
+  },
+  settings: {
+    allowDuplicates: { type: Boolean, default: false },
+    requireApproval: { type: Boolean, default: true },
+    autoSend: { type: Boolean, default: false },
+    notifyAdmin: { type: Boolean, default: true }
   }
-}, { 
-  timestamps: true 
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-// Índices para performance
-groupSchema.index({ category: 1, isActive: 1 });
-groupSchema.index({ sendingEnabled: 1, isActive: 1 });
+// Índices
+groupSchema.index({ whatsappId: 1 });
+groupSchema.index({ isActive: 1, sendingEnabled: 1 });
+groupSchema.index({ category: 1 });
 
-// Método para verificar se pode enviar mensagem
-groupSchema.methods.canSendMessage = function() {
-  if (!this.isActive || !this.sendingEnabled) {
-    return { canSend: false, reason: 'Grupo inativo ou envio desabilitado' };
+// Virtual para verificar se pode enviar
+groupSchema.virtual('canSendNow').get(function() {
+  const now = new Date();
+  const currentHour = now.getHours();
+  return this.isActive && 
+         this.sendingEnabled && 
+         currentHour >= this.allowedHours.start && 
+         currentHour <= this.allowedHours.end &&
+         this.stats.messagesSentToday < this.maxMessagesPerDay;
+});
+
+// Método para resetar contador diário
+groupSchema.methods.resetDailyCounter = function() {
+  const today = new Date().toDateString();
+  const lastReset = this.stats.lastResetDate ? this.stats.lastResetDate.toDateString() : null;
+
+  if (today !== lastReset) {
+    this.stats.messagesSentToday = 0;
+    this.stats.lastResetDate = new Date();
+    return this.save();
   }
-
-  const currentHour = new Date().getHours();
-  if (currentHour < this.allowedHours.start || currentHour > this.allowedHours.end) {
-    return { canSend: false, reason: 'Fora do horário permitido' };
-  }
-
-  if (this.stats.messagesSentToday >= this.maxMessagesPerDay) {
-    return { canSend: false, reason: 'Limite diário de mensagens atingido' };
-  }
-
-  return { canSend: true };
 };
 
-// Método para registrar envio de mensagem
-groupSchema.methods.recordMessageSent = function() {
-  this.stats.totalMessagesSent = (this.stats.totalMessagesSent || 0) + 1;
-  this.stats.messagesSentToday = (this.stats.messagesSentToday || 0) + 1;
-  this.stats.lastMessageSentAt = new Date();
-  this.lastActivityAt = new Date();
+// Método para incrementar contador de mensagens
+groupSchema.methods.incrementMessageCount = function() {
+  this.stats.totalMessagesSent += 1;
+  this.stats.messagesSentToday += 1;
+  this.stats.lastMessageSent = new Date();
+  return this.save();
+};
+
+// Método para atualizar engajamento
+groupSchema.methods.updateEngagement = function(clicks = 0, reactions = 0) {
+  this.stats.totalClicks += clicks;
+  this.stats.totalReactions += reactions;
+
+  // Calcular taxa de engajamento
+  if (this.stats.totalMessagesSent > 0) {
+    const totalEngagement = this.stats.totalClicks + this.stats.totalReactions;
+    this.stats.avgEngagementRate = totalEngagement / this.stats.totalMessagesSent;
+  }
 
   return this.save();
 };
 
-// Método estático para resetar contadores diários (executar via cron)
-groupSchema.statics.resetDailyCounters = function() {
-  return this.updateMany(
-    {},
-    {
-      $set: {
-        'stats.messagesSentToday': 0
-      }
-    }
-  );
-};
+// Pre-save para validações
+groupSchema.pre('save', function(next) {
+  // Garantir que hora de fim seja maior que hora de início
+  if (this.allowedHours.end <= this.allowedHours.start) {
+    return next(new Error('Hora de fim deve ser maior que hora de início'));
+  }
+
+  // Resetar contador diário se necessário
+  this.resetDailyCounter();
+
+  next();
+});
 
 module.exports = mongoose.model('Group', groupSchema);

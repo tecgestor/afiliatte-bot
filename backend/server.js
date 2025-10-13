@@ -1,40 +1,40 @@
-require('dotenv').config();
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const cron = require('node-cron');
+require('dotenv').config();
 
-// Importar configurações
-const Database = require('./src/database/connection');
-const apiRoutes = require('./src/routes');
-const { logging, errorHandler } = require('./src/middleware');
+const DatabaseConnection = require('./src/database/connection');
+const routes = require('./src/routes');
+const { errorHandler, logging } = require('./src/middleware');
+const AffiliateRobotService = require('./src/services/AffiliateRobotService');
 
-/**
- * Classe principal do servidor Express
- */
-class AffiliateBot {
+class Server {
   constructor() {
     this.app = express();
     this.port = process.env.PORT || 5000;
-    this.isProduction = process.env.NODE_ENV === 'production';
+    this.database = new DatabaseConnection();
+    this.robotService = new AffiliateRobotService();
+
+    this.initializeMiddlewares();
+    this.initializeRoutes();
+    this.initializeErrorHandling();
+    this.scheduleTasks();
   }
 
-  /**
-   * Configurar middlewares básicos
-   */
-  setupMiddlewares() {
-    // Segurança
-    this.app.use(helmet({
-      contentSecurityPolicy: this.isProduction,
-      crossOriginEmbedderPolicy: false
-    }));
-
-    // Compressão
-    this.app.use(compression());
-
-    // CORS
+  // Middlewares
+  initializeMiddlewares() {
+    // CORS configuração
     const corsOptions = {
-      origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:3001', 'https://afiliatte-bot.vercel.app', 'https://affiliate-bot-frontend.vercel.app'],
+      origin: [
+        process.env.FRONTEND_URL,
+        'https://afiliatte-bot.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:3001'
+      ],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: [
         'Origin',
@@ -48,140 +48,170 @@ class AffiliateBot {
       optionsSuccessStatus: 200,
       maxAge: 86400
     };
+
     this.app.use(cors(corsOptions));
 
-    // Parse JSON e URL encoded
+    // Headers manuais para garantir CORS
+    this.app.use((req, res, next) => {
+      const origin = req.headers.origin;
+      const allowedOrigins = [
+        process.env.FRONTEND_URL,
+        'https://afiliatte-bot.vercel.app',
+        'http://localhost:3000'
+      ];
+
+      if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      }
+
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+      res.setHeader('Access-Control-Max-Age', '86400');
+
+      if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+      }
+
+      next();
+    });
+
+    // Segurança
+    this.app.use(helmet({
+      crossOriginEmbedderPolicy: false,
+      contentSecurityPolicy: false
+    }));
+
+    // Compressão
+    this.app.use(compression());
+
+    // Rate limiting
+    const limiter = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutos
+      max: 100, // máximo 100 requests por IP
+      message: 'Muitas requisições, tente novamente em alguns minutos',
+      standardHeaders: true,
+      legacyHeaders: false
+    });
+    this.app.use('/api', limiter);
+
+    // Body parsers
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-    // Logging personalizado
+    // Logging
     this.app.use(logging);
   }
 
-  /**
-   * Configurar rotas
-   */
-  setupRoutes() {
-    // Rota raiz
-    this.app.get('/', (req, res) => {
+  // Rotas
+  initializeRoutes() {
+    // Health check
+    this.app.get('/health', (req, res) => {
       res.json({
-        message: '🤖 Affiliate Bot API',
-        version: '1.0.0',
-        status: 'running',
+        status: 'ok',
         timestamp: new Date().toISOString(),
-        endpoints: {
-          api: '/api',
-          health: '/api/health',
-          docs: '/api/info'
-        }
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development',
+        version: '2.0.0'
       });
     });
 
-    // Rotas da API
-    this.app.use('/api', apiRoutes);
+    // API routes
+    this.app.use('/api', routes);
 
-    // Middleware para rotas não encontradas
+    // 404 handler
     this.app.use('*', (req, res) => {
       res.status(404).json({
         success: false,
-        message: `Rota ${req.method} ${req.originalUrl} não encontrada`,
-        timestamp: new Date().toISOString()
+        message: 'Rota não encontrada',
+        path: req.originalUrl
       });
     });
+  }
 
-    // Middleware de tratamento de erros (deve ser o último)
+  // Error handling
+  initializeErrorHandling() {
     this.app.use(errorHandler);
   }
 
-  /**
-   * Conectar ao banco de dados
-   */
-  async connectDatabase() {
-    try {
-      await Database.connect();
-      console.log('✅ Conexão com banco estabelecida');
-    } catch (error) {
-      console.error('❌ Erro ao conectar com banco:', error.message);
-      process.exit(1);
-    }
+  // Tarefas agendadas
+  scheduleTasks() {
+    // Executar robô diariamente às 09:00
+    cron.schedule('0 9 * * *', async () => {
+      console.log('🤖 Executando robô automaticamente...');
+      try {
+        await this.robotService.run({
+          categories: ['electronics', 'beauty', 'home'],
+          platforms: ['mercadolivre', 'shopee'],
+          scrapingLimit: 30
+        });
+      } catch (error) {
+        console.error('❌ Erro na execução automática:', error);
+      }
+    });
+
+    // Limpeza de logs antigos - todo domingo às 02:00
+    cron.schedule('0 2 * * 0', async () => {
+      console.log('🧹 Limpando logs antigos...');
+      // Implementar limpeza de logs
+    });
   }
 
-  /**
-   * Iniciar servidor
-   */
-  async start() {
-    try {
-      // Verificar variáveis de ambiente obrigatórias
-      this.checkRequiredEnvVars();
-
-      // Conectar ao banco
-      await this.connectDatabase();
-
-      // Configurar middlewares e rotas
-      this.setupMiddlewares();
-      this.setupRoutes();
-
-      // Iniciar servidor
-      const server = this.app.listen(this.port, () => {
-        console.log('🚀 Servidor iniciado com sucesso!');
-        console.log(`📡 Porta: ${this.port}`);
-        console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`📊 API: http://localhost:${this.port}/api`);
-        console.log(`❤️  Health: http://localhost:${this.port}/api/health`);
-        console.log('\n✨ Affiliate Bot está rodando!\n');
-      });
-
-      // Graceful shutdown
-      process.on('SIGTERM', () => {
-        console.log('\n🔄 Recebido SIGTERM, encerrando servidor...');
-        server.close(() => {
-          console.log('✅ Servidor HTTP encerrado');
-        });
-      });
-
-      process.on('SIGINT', () => {
-        console.log('\n🔄 Recebido SIGINT (Ctrl+C), encerrando servidor...');
-        server.close(() => {
-          console.log('✅ Servidor HTTP encerrado');
-        });
-      });
-
-      return server;
-
-    } catch (error) {
-      console.error('❌ Erro ao iniciar servidor:', error.message);
-      process.exit(1);
-    }
-  }
-
-  /**
-   * Verificar variáveis de ambiente obrigatórias
-   */
-  checkRequiredEnvVars() {
+  // Verificar variáveis de ambiente
+  checkEnvironmentVariables() {
     const required = [
       'MONGODB_URI',
       'JWT_SECRET'
     ];
 
-    const missing = required.filter(envVar => !process.env[envVar]);
+    const missing = required.filter(key => !process.env[key]);
 
     if (missing.length > 0) {
       console.error('❌ Variáveis de ambiente obrigatórias não definidas:');
-      missing.forEach(envVar => {
-        console.error(`   - ${envVar}`);
-      });
-      console.error('\n💡 Crie um arquivo .env na raiz do projeto com essas variáveis');
+      missing.forEach(key => console.error(` - ${key}`));
       process.exit(1);
     }
 
     console.log('✅ Variáveis de ambiente verificadas');
   }
+
+  // Iniciar servidor
+  async start() {
+    try {
+      // Verificar variáveis
+      this.checkEnvironmentVariables();
+
+      // Conectar ao banco
+      await this.database.connect();
+
+      // Iniciar servidor
+      this.app.listen(this.port, () => {
+        console.log('🚀 Servidor iniciado com sucesso!');
+        console.log(`📡 Rodando na porta: ${this.port}`);
+        console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🕐 Horário: ${new Date().toLocaleString('pt-BR')}`);
+      });
+
+    } catch (error) {
+      console.error('❌ Erro ao iniciar servidor:', error);
+      process.exit(1);
+    }
+  }
 }
 
-// Iniciar aplicação
-if (require.main === module) {
-  const bot = new AffiliateBot();
-  bot.start();
-}
+// Inicializar servidor
+const server = new Server();
+server.start();
 
-module.exports = AffiliateBot;
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🔄 Recebido SIGTERM, fechando servidor...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('🔄 Recebido SIGINT, fechando servidor...');
+  process.exit(0);
+});
+
+module.exports = server;
