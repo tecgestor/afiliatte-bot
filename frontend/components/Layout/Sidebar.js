@@ -14,20 +14,24 @@ const navigation = [
 const Sidebar = () => {
   const router = useRouter();
 
-  const navigateTo = (href) => {
-    console.log('Navegando para:', href);
-    router.push(href);
-  };
-
   return (
-    <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-gray-200">
+    <div 
+      className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-gray-200"
+      style={{
+        zIndex: 1000,
+        pointerEvents: 'auto',
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        height: '100vh',
+        width: '256px'
+      }}
+    >
       <div className="flex-1 flex flex-col min-h-0">
-        {/* Logo */}
         <div className="flex items-center flex-shrink-0 px-4 py-4 border-b border-gray-200">
           <h1 className="text-xl font-bold text-gray-900">🤖 AfiliBot</h1>
         </div>
         
-        {/* Navigation */}
         <nav className="mt-6 flex-1 px-3 space-y-1">
           {navigation.map((item) => {
             const isActive = router.pathname === item.href;
@@ -35,18 +39,29 @@ const Sidebar = () => {
             return (
               <div
                 key={item.name}
-                onClick={() => navigateTo(item.href)}
-                className={`
-                  group flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer transition-all duration-200
-                  ${isActive 
-                    ? 'bg-blue-100 text-blue-900 border-r-2 border-blue-600' 
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }
-                `}
-                role="button"
-                tabIndex={0}
+                onClick={() => {
+                  console.log('🔴 CLICK DETECTADO:', item.name);
+                  router.push(item.href);
+                }}
+                style={{
+                  cursor: 'pointer',
+                  pointerEvents: 'auto',
+                  zIndex: 1001,
+                  position: 'relative',
+                  display: 'block',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: isActive ? '#dbeafe' : 'transparent',
+                  color: isActive ? '#1e40af' : '#4b5563'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) e.target.style.backgroundColor = '#f9fafb';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) e.target.style.backgroundColor = 'transparent';
+                }}
               >
-                <span>{item.name}</span>
+                {item.name}
               </div>
             );
           })}
