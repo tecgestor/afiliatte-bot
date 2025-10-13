@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cron = require('node-cron');
+const { ScrapingService } = require('./services/scrapers');
 require('dotenv').config();
 
 class Server {
@@ -372,6 +373,96 @@ class Server {
           messages: { today: 24 }
         }
       });
+    });
+
+    // Scraping routes - NOVOS!
+    this.app.post('/api/robot/scraping/run', async (req, res) => {
+      try {
+        const config = req.body || {
+          platforms: ['mercadolivre', 'shopee'],
+          categories: ['electronics', 'beauty'],
+          maxProducts: 30,
+          minRating: 3.0,
+          minCommission: 4
+        };
+
+        console.log('🤖 Iniciando scraping com config:', config);
+
+        const scrapingService = new ScrapingService();
+        const result = await scrapingService.scrapeProducts(config);
+
+        if (result.success) {
+          // Salvar produtos no banco de dados se conectado
+          if (mongoose.connection.readyState === 1) {
+            try {
+              const Product = mongoose.model('Product');
+              const savedProducts = await Product.insertMany(result.products);
+              console.log(`💾 ${savedProducts.length} produtos salvos no banco`);
+            } catch (dbError) {
+              console.error('Erro ao salvar no banco:', dbError);
+            }
+          }
+
+          res.json({
+            success: true,
+            message: `Scraping concluído! ${result.products.length} produtos encontrados`,
+            data: {
+              products: result.products,
+              stats: result.stats,
+              config: config
+            }
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: 'Erro durante o scraping',
+            error: result.error,
+            stats: result.stats
+          });
+        }
+
+      } catch (error) {
+        console.error('❌ Erro na rota de scraping:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Erro interno no scraping',
+          error: error.message
+        });
+      }
+    });
+
+    this.app.get('/api/robot/scraping/test', async (req, res) => {
+      try {
+        const { platform = 'mercadolivre', category = 'electronics' } = req.query;
+
+        const scrapingService = new ScrapingService();
+
+        let testProducts = [];
+        if (platform === 'mercadolivre') {
+          testProducts = await scrapingService.mlScraper.searchProducts(category, 5);
+        } else if (platform === 'shopee') {
+          testProducts = await scrapingService.shopeeScraper.searchProducts(category, 5);
+        }
+
+        res.json({
+          success: true,
+          message: `Teste ${platform} concluído`,
+          data: {
+            products: testProducts,
+            count: testProducts.length,
+            platform,
+            category
+          }
+        });
+
+      } catch (error) {
+        console.error('❌ Erro no teste:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Erro no teste de scraping',
+          error: error.message
+        });
+      }
     });
 
     // Catch all para API
