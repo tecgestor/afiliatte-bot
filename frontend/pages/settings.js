@@ -529,8 +529,8 @@ cd evolution-api
 /*Configurar ambiente*/
 cp .env.example .env
 
-/*Editar configurações*/
-nano .env
+/*Editar configurações
+nano .env*/
 
 /*Configurações importantes:*/
 AUTHENTICATION_API´}
