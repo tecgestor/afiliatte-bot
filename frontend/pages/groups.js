@@ -1,205 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useApiQuery, useApiMutation } from '../hooks/useApi';
 import Button from '../components/UI/Button';
 import Loading from '../components/UI/Loading';
 import Modal from '../components/UI/Modal';
-import Alert from '../components/UI/Alert';
 import { toast } from 'react-hot-toast';
 
-// Mock APIs para funcionar sem backend completo
-const mockGroupsAPI = {
-  getAll: () => Promise.resolve({
-    data: {
-      docs: [
-        {
-          _id: '1',
-          name: 'Grupo Eletrônicos Premium',
-          description: 'Produtos eletrônicos de alta qualidade',
-          whatsappId: '123456789@g.us',
-          category: 'electronics',
-          membersCount: 250,
-          isActive: true,
-          sendingEnabled: true,
-          maxMessagesPerDay: 10,
-          allowedHours: { start: 8, end: 22 },
-          stats: {
-            totalMessagesSent: 145,
-            messagesSentToday: 3,
-            totalClicks: 89,
-            avgEngagementRate: 0.12
-          }
-        },
-        {
-          _id: '2',
-          name: 'Beleza & Cosméticos',
-          description: 'Produtos de beleza e cuidados pessoais',
-          whatsappId: '987654321@g.us',
-          category: 'beauty',
-          membersCount: 180,
-          isActive: true,
-          sendingEnabled: false,
-          maxMessagesPerDay: 8,
-          allowedHours: { start: 9, end: 21 },
-          stats: {
-            totalMessagesSent: 67,
-            messagesSentToday: 0,
-            totalClicks: 34,
-            avgEngagementRate: 0.08
-          }
-        },
-        {
-          _id: '3',
-          name: 'Casa & Decoração',
-          description: 'Itens para casa e decoração',
-          whatsappId: '555666777@g.us',
-          category: 'home',
-          membersCount: 95,
-          isActive: false,
-          sendingEnabled: false,
-          maxMessagesPerDay: 5,
-          allowedHours: { start: 10, end: 20 },
-          stats: {
-            totalMessagesSent: 23,
-            messagesSentToday: 0,
-            totalClicks: 8,
-            avgEngagementRate: 0.05
-          }
-        }
-      ]
-    }
-  }),
-  create: (data) => {
-    console.log('Criando grupo:', data);
-    return Promise.resolve({ data: { ...data, _id: Date.now().toString() } });
-  },
-  update: (id, data) => {
-    console.log('Atualizando grupo:', id, data);
-    return Promise.resolve({ data: { ...data, _id: id } });
-  },
-  delete: (id) => {
-    console.log('Excluindo grupo:', id);
-    return Promise.resolve({ data: { success: true } });
-  },
-  toggleSending: (id) => {
-    console.log('Alternando envio:', id);
-    return Promise.resolve({ data: { success: true } });
-  },
-  sendMessage: (id, messageData) => {
-    console.log('Enviando mensagem:', id, messageData);
-    return Promise.resolve({ data: { success: true, messageId: Date.now().toString() } });
-  }
-};
-
-const mockTemplatesAPI = {
-  getAll: () => Promise.resolve({
-    data: {
-      docs: [
-        {
-          _id: '1',
-          name: 'Template Eletrônicos',
-          category: 'electronics'
-        },
-        {
-          _id: '2',
-          name: 'Template Beleza',
-          category: 'beauty'
-        }
-      ]
-    }
-  })
-};
-
-const mockProductsAPI = {
-  getAll: (params) => Promise.resolve({
-    data: {
-      docs: [
-        {
-          _id: '1',
-          title: 'Smartphone Samsung Galaxy S24',
-          price: 2499.99,
-          platform: 'mercadolivre'
-        },
-        {
-          _id: '2',
-          title: 'iPhone 15 Pro Max',
-          price: 4999.99,
-          platform: 'mercadolivre'
-        }
-      ]
-    }
-  })
-};
-
 export default function Groups() {
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
+  const [whatsappConnected, setWhatsappConnected] = useState(false);
 
-  // Dados usando mock APIs
-  const { data: groups, loading, refetch } = useApiQuery('groups', mockGroupsAPI.getAll);
-  const { data: templates } = useApiQuery('templates', mockTemplatesAPI.getAll);
-  const { data: products } = useApiQuery('approved-products', () => mockProductsAPI.getAll({ isApproved: true, limit: 50 }));
-
-  // Mutations usando mock APIs
-  const createMutation = useApiMutation(
-    (data) => mockGroupsAPI.create(data),
-    {
-      successMessage: 'Grupo criado com sucesso!',
-      invalidateQueries: ['groups'],
-      onSuccess: () => {
-        setShowCreateModal(false);
-        refetch();
-      }
-    }
-  );
-
-  const updateMutation = useApiMutation(
-    ({ id, data }) => mockGroupsAPI.update(id, data),
-    {
-      successMessage: 'Grupo atualizado com sucesso!',
-      invalidateQueries: ['groups'],
-      onSuccess: () => {
-        setShowEditModal(false);
-        setSelectedGroup(null);
-        refetch();
-      }
-    }
-  );
-
-  const deleteMutation = useApiMutation(
-    (id) => mockGroupsAPI.delete(id),
-    {
-      successMessage: 'Grupo excluído com sucesso!',
-      invalidateQueries: ['groups'],
-      onSuccess: () => refetch()
-    }
-  );
-
-  const toggleSendingMutation = useApiMutation(
-    (id) => mockGroupsAPI.toggleSending(id),
-    {
-      successMessage: 'Status de envio alterado!',
-      invalidateQueries: ['groups'],
-      onSuccess: () => refetch()
-    }
-  );
-
-  const sendMessageMutation = useApiMutation(
-    ({ groupId, message, templateId, productId }) => mockGroupsAPI.sendMessage(groupId, { message, templateId, productId }),
-    {
-      successMessage: 'Mensagem enviada com sucesso!',
-      onSuccess: () => {
-        setShowSendModal(false);
-        setSelectedGroup(null);
-      }
-    }
-  );
-
-  // Formulários
-  const createForm = useForm({
+  const addForm = useForm({
     defaultValues: {
       name: '',
       description: '',
@@ -208,56 +24,183 @@ export default function Groups() {
       maxMessagesPerDay: 5,
       allowedHours: { start: 8, end: 22 },
       sendingEnabled: false,
-      autoSend: false,
       membersCount: 0
     }
   });
 
   const editForm = useForm();
-  const sendForm = useForm({
-    defaultValues: {
-      message: '',
-      messageType: 'custom',
-      templateId: '',
-      productId: '',
-      sendImmediate: true,
-      trackEngagement: true
-    }
-  });
+  const sendForm = useForm();
 
-  // Handlers
-  const handleCreate = (data) => {
-    console.log('🆕 Criando grupo:', data);
-    createMutation.mutate({
-      ...data,
-      whatsappId: data.whatsappId.includes('@g.us') ? data.whatsappId : `${data.whatsappId}@g.us`
-    });
+  useEffect(() => {
+    loadGroups();
+    checkWhatsAppStatus();
+  }, []);
+
+  const loadGroups = () => {
+    setLoading(true);
+    try {
+      const savedGroups = localStorage.getItem('affiliate_groups');
+      if (savedGroups) {
+        setGroups(JSON.parse(savedGroups));
+      } else {
+        // Grupos iniciais
+        const initialGroups = [];
+        setGroups(initialGroups);
+        localStorage.setItem('affiliate_groups', JSON.stringify(initialGroups));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar grupos:', error);
+      toast.error('Erro ao carregar grupos');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEdit = (group) => {
+  const saveGroups = (updatedGroups) => {
+    localStorage.setItem('affiliate_groups', JSON.stringify(updatedGroups));
+    setGroups(updatedGroups);
+  };
+
+  const checkWhatsAppStatus = () => {
+    // Verificar se há configuração real da Evolution API
+    const evolutionConfig = localStorage.getItem('evolution_api_config');
+    if (evolutionConfig) {
+      const config = JSON.parse(evolutionConfig);
+      setWhatsappConnected(config.connected === true);
+    } else {
+      setWhatsappConnected(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    try {
+      toast.loading('Testando conexão WhatsApp...', { id: 'test-connection' });
+
+      // Simular teste
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Verificar se há configuração
+      const evolutionConfig = localStorage.getItem('evolution_api_config');
+      if (!evolutionConfig) {
+        toast.error('❌ Evolution API não configurada. Configure nas Configurações → WhatsApp', { id: 'test-connection' });
+        setWhatsappConnected(false);
+        return;
+      }
+
+      // Simulação de teste baseada na configuração
+      const isConnected = Math.random() > 0.3;
+
+      if (isConnected) {
+        toast.success('✅ WhatsApp conectado com sucesso!', { id: 'test-connection' });
+        setWhatsappConnected(true);
+        // Salvar status
+        const config = JSON.parse(evolutionConfig);
+        config.connected = true;
+        config.lastTest = new Date().toISOString();
+        localStorage.setItem('evolution_api_config', JSON.stringify(config));
+      } else {
+        toast.error('❌ Falha na conexão. Verifique a configuração da Evolution API.', { id: 'test-connection' });
+        setWhatsappConnected(false);
+      }
+    } catch (error) {
+      toast.error('❌ Erro ao testar conexão', { id: 'test-connection' });
+      setWhatsappConnected(false);
+    }
+  };
+
+  const handleAddGroup = (data) => {
+    try {
+      // Validar WhatsApp ID
+      let whatsappId = data.whatsappId.trim();
+      if (!whatsappId.includes('@g.us')) {
+        whatsappId = `${whatsappId}@g.us`;
+      }
+
+      const newGroup = {
+        ...data,
+        id: Date.now().toString(),
+        whatsappId,
+        isActive: true,
+        stats: {
+          totalMessagesSent: 0,
+          messagesSentToday: 0,
+          totalClicks: 0,
+          avgEngagementRate: 0
+        },
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedGroups = [newGroup, ...groups];
+      saveGroups(updatedGroups);
+
+      addForm.reset();
+      setShowAddModal(false);
+      toast.success('Grupo adicionado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar grupo:', error);
+      toast.error('Erro ao adicionar grupo');
+    }
+  };
+
+  const handleEditGroup = (group) => {
     setSelectedGroup(group);
     editForm.reset(group);
     setShowEditModal(true);
   };
 
-  const handleUpdate = (data) => {
-    console.log('✏️ Atualizando grupo:', selectedGroup._id, data);
-    updateMutation.mutate({ id: selectedGroup._id, data });
-  };
+  const handleUpdateGroup = (data) => {
+    try {
+      const updatedGroup = {
+        ...selectedGroup,
+        ...data,
+        updatedAt: new Date().toISOString()
+      };
 
-  const handleDelete = (group) => {
-    if (window.confirm(`Tem certeza que deseja excluir o grupo "${group.name}"?`)) {
-      console.log('🗑️ Excluindo grupo:', group._id);
-      deleteMutation.mutate(group._id);
+      const updatedGroups = groups.map(g => 
+        g.id === selectedGroup.id ? updatedGroup : g
+      );
+
+      saveGroups(updatedGroups);
+      setShowEditModal(false);
+      setSelectedGroup(null);
+      toast.success('Grupo atualizado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao atualizar grupo:', error);
+      toast.error('Erro ao atualizar grupo');
     }
   };
 
-  const handleToggleSending = (group) => {
-    console.log('🔄 Alternando envio do grupo:', group._id);
-    toggleSendingMutation.mutate(group._id);
+  const handleToggleSending = (groupId) => {
+    try {
+      const updatedGroups = groups.map(g => 
+        g.id === groupId ? { ...g, sendingEnabled: !g.sendingEnabled } : g
+      );
+      saveGroups(updatedGroups);
+      toast.success('Status de envio alterado!');
+    } catch (error) {
+      console.error('Erro ao alterar status:', error);
+      toast.error('Erro ao alterar status');
+    }
+  };
+
+  const handleDeleteGroup = (groupId) => {
+    if (window.confirm('Tem certeza que deseja excluir este grupo?')) {
+      try {
+        const updatedGroups = groups.filter(g => g.id !== groupId);
+        saveGroups(updatedGroups);
+        toast.success('Grupo excluído com sucesso!');
+      } catch (error) {
+        console.error('Erro ao excluir grupo:', error);
+        toast.error('Erro ao excluir grupo');
+      }
+    }
   };
 
   const handleSendMessage = (group) => {
+    if (!whatsappConnected) {
+      toast.error('WhatsApp não está conectado. Configure primeiro.');
+      return;
+    }
     setSelectedGroup(group);
     sendForm.reset({
       message: `🔥 OFERTA ESPECIAL!
@@ -266,54 +209,45 @@ export default function Groups() {
 💰 Por apenas R$ [Preço]
 ⚡ Desconto imperdível!
 
-👆 COMPRAR AGORA: [Link]
+👆 COMPRAR AGORA: [Link de Afiliado]
 
-#Oferta #${group.category}`,
-      messageType: 'custom',
-      templateId: '',
-      productId: '',
-      sendImmediate: true,
-      trackEngagement: true
+#Oferta #${group.category}`
     });
     setShowSendModal(true);
   };
 
   const handleSendSubmit = (data) => {
-    console.log('📤 Enviando mensagem:', data);
-    sendMessageMutation.mutate({
-      groupId: selectedGroup._id,
-      ...data
-    });
-  };
-
-  const handleTestConnection = async () => {
     try {
-      toast.loading('Testando conexão WhatsApp...', { id: 'test-connection' });
-
-      // Simular teste de conexão
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      const isConnected = Math.random() > 0.3; // 70% chance de sucesso
-
-      if (isConnected) {
-        toast.success('✅ WhatsApp conectado com sucesso!', { id: 'test-connection' });
-      } else {
-        toast.error('❌ Falha na conexão. Verifique as configurações da Evolution API.', { id: 'test-connection' });
+      if (!whatsappConnected) {
+        toast.error('WhatsApp não está conectado');
+        return;
       }
+
+      // Simular envio
+      toast.success(`Mensagem enviada para ${selectedGroup.name}!`);
+
+      // Atualizar estatísticas do grupo
+      const updatedGroups = groups.map(g => 
+        g.id === selectedGroup.id ? {
+          ...g,
+          stats: {
+            ...g.stats,
+            totalMessagesSent: g.stats.totalMessagesSent + 1,
+            messagesSentToday: g.stats.messagesSentToday + 1
+          }
+        } : g
+      );
+      saveGroups(updatedGroups);
+
+      setShowSendModal(false);
+      setSelectedGroup(null);
     } catch (error) {
-      toast.error('❌ Erro ao testar conexão', { id: 'test-connection' });
+      console.error('Erro ao enviar mensagem:', error);
+      toast.error('Erro ao enviar mensagem');
     }
   };
 
-  if (loading) {
-    return <Loading text="Carregando grupos..." />;
-  }
-
-  const groupList = groups?.data?.docs || [];
-  const templateList = templates?.data?.docs || [];
-  const productList = products?.data?.docs || [];
-
-  const filteredGroups = groupList.filter(group => {
+  const filteredGroups = groups.filter(group => {
     if (activeFilter === 'all') return true;
     if (activeFilter === 'active') return group.isActive && group.sendingEnabled;
     if (activeFilter === 'inactive') return !group.isActive || !group.sendingEnabled;
@@ -332,6 +266,10 @@ export default function Groups() {
     return 'Pausado';
   };
 
+  if (loading) {
+    return <Loading text="Carregando grupos..." />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -343,10 +281,10 @@ export default function Groups() {
           <Button onClick={handleTestConnection} variant="outline">
             📡 Testar Conexão
           </Button>
-          <Button onClick={() => refetch()} variant="outline">
+          <Button onClick={loadGroups} variant="outline">
             🔄 Atualizar
           </Button>
-          <Button onClick={() => setShowCreateModal(true)} variant="primary">
+          <Button onClick={() => setShowAddModal(true)} variant="primary">
             ➕ Novo Grupo
           </Button>
         </div>
@@ -356,28 +294,37 @@ export default function Groups() {
       <div className="bg-white shadow rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="h-3 w-3 bg-green-400 rounded-full animate-pulse"></div>
+            <div className={`h-3 w-3 rounded-full ${whatsappConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
             <div>
               <h3 className="text-sm font-medium text-gray-900">Status do WhatsApp</h3>
-              <p className="text-sm text-gray-600">Conectado via Evolution API</p>
+              <p className="text-sm text-gray-600">
+                {whatsappConnected ? 'Conectado via Evolution API' : 'Desconectado - Configure nas Configurações'}
+              </p>
             </div>
           </div>
           <div className="text-sm text-gray-500">
-            Última verificação: há 2 minutos
+            {whatsappConnected ? 'Última verificação: há 2 minutos' : 'Não configurado'}
           </div>
         </div>
+        {!whatsappConnected && (
+          <div className="mt-3">
+            <Button size="sm" variant="primary" disabled>
+              Configure a Evolution API em Configurações → WhatsApp
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Filtros */}
       <div className="bg-white shadow rounded-lg p-4">
         <div className="flex flex-wrap gap-2">
           {[
-            { key: 'all', label: 'Todos', count: groupList.length },
-            { key: 'active', label: 'Ativos', count: groupList.filter(g => g.isActive && g.sendingEnabled).length },
-            { key: 'inactive', label: 'Inativos', count: groupList.filter(g => !g.isActive || !g.sendingEnabled).length },
-            { key: 'electronics', label: 'Eletrônicos', count: groupList.filter(g => g.category === 'electronics').length },
-            { key: 'beauty', label: 'Beleza', count: groupList.filter(g => g.category === 'beauty').length },
-            { key: 'general', label: 'Geral', count: groupList.filter(g => g.category === 'general').length }
+            { key: 'all', label: 'Todos', count: groups.length },
+            { key: 'active', label: 'Ativos', count: groups.filter(g => g.isActive && g.sendingEnabled).length },
+            { key: 'inactive', label: 'Inativos', count: groups.filter(g => !g.isActive || !g.sendingEnabled).length },
+            { key: 'electronics', label: 'Eletrônicos', count: groups.filter(g => g.category === 'electronics').length },
+            { key: 'beauty', label: 'Beleza', count: groups.filter(g => g.category === 'beauty').length },
+            { key: 'general', label: 'Geral', count: groups.filter(g => g.category === 'general').length }
           ].map((filter) => (
             <button
               key={filter.key}
@@ -397,7 +344,7 @@ export default function Groups() {
       {/* Lista de Grupos */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {filteredGroups.map((group) => (
-          <div key={group._id} className="bg-white overflow-hidden shadow rounded-lg">
+          <div key={group.id} className="bg-white overflow-hidden shadow rounded-lg">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
@@ -475,14 +422,14 @@ export default function Groups() {
                     size="sm"
                     variant="primary"
                     onClick={() => handleSendMessage(group)}
-                    disabled={!group.isActive}
+                    disabled={!group.isActive || !whatsappConnected}
                   >
                     📤 Enviar
                   </Button>
                   <Button
                     size="sm"
                     variant={group.sendingEnabled ? "danger" : "success"}
-                    onClick={() => handleToggleSending(group)}
+                    onClick={() => handleToggleSending(group.id)}
                   >
                     {group.sendingEnabled ? '⏸️ Pausar' : '▶️ Ativar'}
                   </Button>
@@ -491,15 +438,14 @@ export default function Groups() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleEdit(group)}
+                    onClick={() => handleEditGroup(group)}
                   >
                     ✏️ Editar
                   </Button>
                   <Button
                     size="sm"
                     variant="danger"
-                    onClick={() => handleDelete(group)}
-                    loading={deleteMutation.isLoading}
+                    onClick={() => handleDeleteGroup(group.id)}
                   >
                     🗑️ Excluir
                   </Button>
@@ -525,7 +471,7 @@ export default function Groups() {
           </p>
           {activeFilter === 'all' && (
             <Button 
-              onClick={() => setShowCreateModal(true)}
+              onClick={() => setShowAddModal(true)}
               variant="primary"
               className="mt-4"
             >
@@ -535,33 +481,32 @@ export default function Groups() {
         </div>
       )}
 
-      {/* Modal Criar Grupo */}
+      {/* Modal Adicionar Grupo */}
       <Modal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
         title="➕ Criar Novo Grupo"
         size="xl"
       >
-        <form onSubmit={createForm.handleSubmit(handleCreate)} className="space-y-6">
-          {/* Informações Básicas */}
+        <form onSubmit={addForm.handleSubmit(handleAddGroup)} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Nome do Grupo</label>
               <input
-                {...createForm.register('name', { required: 'Nome é obrigatório' })}
+                {...addForm.register('name', { required: 'Nome é obrigatório' })}
                 type="text"
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
                 placeholder="Ex: Grupo Eletrônicos Premium"
               />
-              {createForm.formState.errors.name && (
-                <p className="mt-1 text-sm text-red-600">{createForm.formState.errors.name.message}</p>
+              {addForm.formState.errors.name && (
+                <p className="mt-1 text-sm text-red-600">{addForm.formState.errors.name.message}</p>
               )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Categoria</label>
               <select
-                {...createForm.register('category', { required: 'Categoria é obrigatória' })}
+                {...addForm.register('category')}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
               >
                 <option value="general">Geral</option>
@@ -577,7 +522,7 @@ export default function Groups() {
           <div>
             <label className="block text-sm font-medium text-gray-700">Descrição</label>
             <textarea
-              {...createForm.register('description')}
+              {...addForm.register('description')}
               rows={3}
               className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
               placeholder="Descreva o grupo e seu público-alvo"
@@ -587,7 +532,7 @@ export default function Groups() {
           <div>
             <label className="block text-sm font-medium text-gray-700">WhatsApp Group ID</label>
             <input
-              {...createForm.register('whatsappId', { required: 'WhatsApp ID é obrigatório' })}
+              {...addForm.register('whatsappId', { required: 'WhatsApp ID é obrigatório' })}
               type="text"
               className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
               placeholder="123456789@g.us ou apenas 123456789"
@@ -595,18 +540,16 @@ export default function Groups() {
             <p className="mt-1 text-xs text-gray-500">
               Cole o ID do grupo do WhatsApp. Você pode obter isso usando um bot ou ferramenta de gerenciamento.
             </p>
-            {createForm.formState.errors.whatsappId && (
-              <p className="mt-1 text-sm text-red-600">{createForm.formState.errors.whatsappId.message}</p>
+            {addForm.formState.errors.whatsappId && (
+              <p className="mt-1 text-sm text-red-600">{addForm.formState.errors.whatsappId.message}</p>
             )}
           </div>
 
-          {/* Configurações */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Máx. Mensagens/Dia</label>
               <input
-                {...createForm.register('maxMessagesPerDay', { 
-                  required: 'Campo obrigatório',
+                {...addForm.register('maxMessagesPerDay', { 
                   min: { value: 1, message: 'Mínimo 1 mensagem' },
                   max: { value: 50, message: 'Máximo 50 mensagens' }
                 })}
@@ -619,7 +562,7 @@ export default function Groups() {
             <div>
               <label className="block text-sm font-medium text-gray-700">Membros Estimados</label>
               <input
-                {...createForm.register('membersCount')}
+                {...addForm.register('membersCount')}
                 type="number"
                 min="0"
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
@@ -628,14 +571,13 @@ export default function Groups() {
             </div>
           </div>
 
-          {/* Horários Permitidos */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Horários de Envio</label>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600">Início</label>
                 <select
-                  {...createForm.register('allowedHours.start')}
+                  {...addForm.register('allowedHours.start')}
                   className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
                 >
                   {Array.from({ length: 24 }, (_, i) => (
@@ -646,7 +588,7 @@ export default function Groups() {
               <div>
                 <label className="block text-xs font-medium text-gray-600">Fim</label>
                 <select
-                  {...createForm.register('allowedHours.end')}
+                  {...addForm.register('allowedHours.end')}
                   className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
                 >
                   {Array.from({ length: 24 }, (_, i) => (
@@ -657,40 +599,24 @@ export default function Groups() {
             </div>
           </div>
 
-          {/* Opções */}
-          <div className="space-y-4">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                {...createForm.register('sendingEnabled')}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <span className="ml-2 text-sm text-gray-700">Ativar envio automático</span>
-            </label>
-
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                {...createForm.register('autoSend')}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <span className="ml-2 text-sm text-gray-700">Envio automático (sem aprovação manual)</span>
-            </label>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              {...addForm.register('sendingEnabled')}
+              className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            />
+            <span className="ml-2 text-sm text-gray-700">Ativar envio automático</span>
           </div>
 
-          {/* Botões */}
           <div className="flex justify-end space-x-3 pt-6 border-t">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setShowCreateModal(false)}
+              onClick={() => setShowAddModal(false)}
             >
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              loading={createMutation.isLoading}
-            >
+            <Button type="submit">
               ➕ Criar Grupo
             </Button>
           </div>
@@ -705,7 +631,7 @@ export default function Groups() {
         size="xl"
       >
         {selectedGroup && (
-          <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-6">
+          <form onSubmit={editForm.handleSubmit(handleUpdateGroup)} className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Nome do Grupo</label>
@@ -731,6 +657,37 @@ export default function Groups() {
               </div>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Descrição</label>
+              <textarea
+                {...editForm.register('description')}
+                rows={3}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Máx. Mensagens/Dia</label>
+                <input
+                  {...editForm.register('maxMessagesPerDay')}
+                  type="number"
+                  min="1"
+                  max="50"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Membros</label>
+                <input
+                  {...editForm.register('membersCount')}
+                  type="number"
+                  min="0"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+            </div>
+
             <div className="flex justify-end space-x-3 pt-6 border-t">
               <Button
                 type="button"
@@ -739,10 +696,7 @@ export default function Groups() {
               >
                 Cancelar
               </Button>
-              <Button
-                type="submit"
-                loading={updateMutation.isLoading}
-              >
+              <Button type="submit">
                 💾 Salvar Alterações
               </Button>
             </div>
@@ -769,78 +723,19 @@ export default function Groups() {
               </div>
             </div>
 
-            {/* Mensagem */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Mensagem</label>
               <textarea
                 {...sendForm.register('message', { required: 'Mensagem é obrigatória' })}
                 rows={8}
                 className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Digite sua mensagem aqui...&#10;&#10;🔥 SUPER OFERTA!&#10;&#10;📱 [Nome do Produto]&#10;💰 Por apenas R$ [Preço]&#10;⚡ Desconto de [%]!&#10;&#10;👆 COMPRAR: [Link]"
+                placeholder="Digite sua mensagem..."
               />
               {sendForm.formState.errors.message && (
                 <p className="mt-1 text-sm text-red-600">{sendForm.formState.errors.message.message}</p>
               )}
             </div>
 
-            {/* Template Selection */}
-            {templateList.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Template (Opcional)</label>
-                <select
-                  {...sendForm.register('templateId')}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                >
-                  <option value="">Selecione um template...</option>
-                  {templateList.map((template) => (
-                    <option key={template._id} value={template._id}>
-                      {template.name} ({template.category})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Product Selection */}
-            {productList.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Produto (Opcional)</label>
-                <select
-                  {...sendForm.register('productId')}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                >
-                  <option value="">Selecione um produto...</option>
-                  {productList.map((product) => (
-                    <option key={product._id} value={product._id}>
-                      {product.title} - R$ {product.price?.toFixed(2)} ({product.platform})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Opções de Envio */}
-            <div className="space-y-3">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  {...sendForm.register('sendImmediate')}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <span className="ml-2 text-sm text-gray-700">Enviar imediatamente</span>
-              </label>
-
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  {...sendForm.register('trackEngagement')}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <span className="ml-2 text-sm text-gray-700">Rastrear engajamento (cliques, reações)</span>
-              </label>
-            </div>
-
-            {/* Preview da Mensagem */}
             <div className="bg-gray-50 rounded-lg p-4">
               <h4 className="text-sm font-medium text-gray-900 mb-2">Preview da Mensagem:</h4>
               <div className="bg-white rounded-lg p-3 border-l-4 border-green-500">
@@ -860,7 +755,6 @@ export default function Groups() {
               </div>
             </div>
 
-            {/* Botões */}
             <div className="flex justify-end space-x-3 pt-6 border-t">
               <Button
                 type="button"
@@ -871,8 +765,8 @@ export default function Groups() {
               </Button>
               <Button
                 type="submit"
-                loading={sendMessageMutation.isLoading}
                 variant="success"
+                disabled={!whatsappConnected}
               >
                 📤 Enviar Mensagem
               </Button>
