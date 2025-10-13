@@ -176,37 +176,4 @@ if (require.main === module) {
   bot.start();
 }
 
-app.post('/api/seed-now', async (req, res) => {
-  try {
-    const bcrypt = require('bcryptjs');
-    const { User } = require('./src/models');
-    
-    // Criar admin
-    const adminPassword = await bcrypt.hash('admin123', 12);
-    await User.create({
-      name: 'Administrador',
-      email: 'admin@affiliatebot.com',
-      password: adminPassword,
-      role: 'admin'
-    });
-    
-    // Criar user teste  
-    const userPassword = await bcrypt.hash('user123', 12);
-    await User.create({
-      name: 'Usuário Teste', 
-      email: 'user@test.com',
-      password: userPassword,
-      role: 'user'
-    });
-    
-    res.json({ 
-      success: true, 
-      message: 'Usuários criados!',
-      users: ['admin@affiliatebot.com', 'user@test.com']
-    });
-  } catch (error) {
-    res.json({ success: false, error: error.message });
-  }
-});
-
 module.exports = AffiliateBot;
