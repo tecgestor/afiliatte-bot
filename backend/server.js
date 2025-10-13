@@ -5,7 +5,6 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const cron = require('node-cron');
-const { ScrapingService } = require('./services/scrapers');
 require('dotenv').config();
 
 class Server {
@@ -237,24 +236,6 @@ class Server {
             totalClicks: 89,
             avgEngagementRate: 0.12
           }
-        },
-        {
-          _id: '2',
-          name: 'Beleza & Cosméticos',
-          description: 'Produtos de beleza e cuidados pessoais',
-          whatsappId: '987654321@g.us',
-          category: 'beauty',
-          membersCount: 180,
-          isActive: true,
-          sendingEnabled: false,
-          maxMessagesPerDay: 8,
-          allowedHours: { start: 9, end: 21 },
-          stats: {
-            totalMessagesSent: 67,
-            messagesSentToday: 0,
-            totalClicks: 34,
-            avgEngagementRate: 0.08
-          }
         }
       ];
 
@@ -334,7 +315,7 @@ class Server {
       });
     });
 
-    // Robot routes
+    // Robot routes (SEM SCRAPING POR ENQUANTO)
     this.app.get('/api/robot/status', (req, res) => {
       res.json({
         success: true,
@@ -351,16 +332,89 @@ class Server {
     });
 
     this.app.post('/api/robot/run', (req, res) => {
+      // Simular execução sem scraping real
       setTimeout(() => {
         res.json({
           success: true,
-          message: 'Robô executado com sucesso',
+          message: 'Robô executado com sucesso (modo simulado)',
           data: {
             productsScraped: 30,
-            messagesSent: 12
+            messagesSent: 12,
+            note: 'Scraping real será adicionado após configuração dos scrapers'
           }
         });
       }, 2000);
+    });
+
+    // SCRAPING ROUTES TEMPORÁRIAS (SEM DEPENDÊNCIA EXTERNA)
+    this.app.post('/api/robot/scraping/run', async (req, res) => {
+      try {
+        const config = req.body || {};
+
+        console.log('🤖 Simulando scraping com config:', config);
+
+        // Simular tempo de scraping
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        // Gerar produtos simulados mais realistas
+        const mockProducts = this.generateMockProducts(config);
+
+        res.json({
+          success: true,
+          message: `Scraping simulado concluído! ${mockProducts.length} produtos gerados`,
+          data: {
+            products: mockProducts,
+            stats: {
+              total: mockProducts.length,
+              mercadolivre: mockProducts.filter(p => p.platform === 'mercadolivre').length,
+              shopee: mockProducts.filter(p => p.platform === 'shopee').length
+            },
+            note: 'Esta é uma simulação. Implemente os scrapers reais para dados verdadeiros.'
+          }
+        });
+
+      } catch (error) {
+        console.error('❌ Erro na simulação:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Erro durante a simulação',
+          error: error.message
+        });
+      }
+    });
+
+    this.app.get('/api/robot/scraping/test', async (req, res) => {
+      try {
+        const { platform = 'mercadolivre', category = 'electronics' } = req.query;
+
+        // Simular teste
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        const testProducts = this.generateMockProducts({ 
+          platforms: [platform], 
+          categories: [category], 
+          maxProducts: 5 
+        });
+
+        res.json({
+          success: true,
+          message: `Teste ${platform} simulado`,
+          data: {
+            products: testProducts,
+            count: testProducts.length,
+            platform,
+            category,
+            note: 'Teste simulado. Implemente scrapers reais para dados verdadeiros.'
+          }
+        });
+
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          message: 'Erro no teste simulado',
+          error: error.message
+        });
+      }
     });
 
     // Stats routes
@@ -373,96 +427,6 @@ class Server {
           messages: { today: 24 }
         }
       });
-    });
-
-    // Scraping routes - NOVOS!
-    this.app.post('/api/robot/scraping/run', async (req, res) => {
-      try {
-        const config = req.body || {
-          platforms: ['mercadolivre', 'shopee'],
-          categories: ['electronics', 'beauty'],
-          maxProducts: 30,
-          minRating: 3.0,
-          minCommission: 4
-        };
-
-        console.log('🤖 Iniciando scraping com config:', config);
-
-        const scrapingService = new ScrapingService();
-        const result = await scrapingService.scrapeProducts(config);
-
-        if (result.success) {
-          // Salvar produtos no banco de dados se conectado
-          if (mongoose.connection.readyState === 1) {
-            try {
-              const Product = mongoose.model('Product');
-              const savedProducts = await Product.insertMany(result.products);
-              console.log(`💾 ${savedProducts.length} produtos salvos no banco`);
-            } catch (dbError) {
-              console.error('Erro ao salvar no banco:', dbError);
-            }
-          }
-
-          res.json({
-            success: true,
-            message: `Scraping concluído! ${result.products.length} produtos encontrados`,
-            data: {
-              products: result.products,
-              stats: result.stats,
-              config: config
-            }
-          });
-        } else {
-          res.status(500).json({
-            success: false,
-            message: 'Erro durante o scraping',
-            error: result.error,
-            stats: result.stats
-          });
-        }
-
-      } catch (error) {
-        console.error('❌ Erro na rota de scraping:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Erro interno no scraping',
-          error: error.message
-        });
-      }
-    });
-
-    this.app.get('/api/robot/scraping/test', async (req, res) => {
-      try {
-        const { platform = 'mercadolivre', category = 'electronics' } = req.query;
-
-        const scrapingService = new ScrapingService();
-
-        let testProducts = [];
-        if (platform === 'mercadolivre') {
-          testProducts = await scrapingService.mlScraper.searchProducts(category, 5);
-        } else if (platform === 'shopee') {
-          testProducts = await scrapingService.shopeeScraper.searchProducts(category, 5);
-        }
-
-        res.json({
-          success: true,
-          message: `Teste ${platform} concluído`,
-          data: {
-            products: testProducts,
-            count: testProducts.length,
-            platform,
-            category
-          }
-        });
-
-      } catch (error) {
-        console.error('❌ Erro no teste:', error);
-        res.status(500).json({
-          success: false,
-          message: 'Erro no teste de scraping',
-          error: error.message
-        });
-      }
     });
 
     // Catch all para API
@@ -485,6 +449,123 @@ class Server {
     });
   }
 
+  // Gerador de produtos simulados mais realistas
+  generateMockProducts(config = {}) {
+    const { platforms = ['mercadolivre', 'shopee'], categories = ['electronics'], maxProducts = 20 } = config;
+
+    const productTemplates = {
+      electronics: {
+        mercadolivre: [
+          'Smartphone Samsung Galaxy A54 5G 128GB',
+          'iPhone 14 128GB Azul',
+          'Notebook Dell Inspiron 15 i5 8GB',
+          'Smart TV LG 55 4K UltraHD',
+          'Fone Bluetooth JBL Tune 510BT',
+          'Tablet Samsung Galaxy Tab A8',
+          'Smartwatch Amazfit Bip 3 Pro',
+          'Carregador Portátil Anker 10000mAh'
+        ],
+        shopee: [
+          'Celular Xiaomi Redmi Note 12 Pro',
+          'Airpods Pro 2ª Geração Apple',
+          'Caixa Som Bluetooth JBL Go 3',
+          'Carregador Sem Fio 15W Fast',
+          'Mouse Gamer RGB 7200 DPI',
+          'Teclado Mecânico Gamer RGB',
+          'Webcam Full HD 1080p',
+          'SSD 1TB SATA 2.5'
+        ]
+      },
+      beauty: {
+        mercadolivre: [
+          'Perfume Boticário Malbec 100ml',
+          'Kit Shampoo + Condicionador Pantene',
+          'Base Líquida Ruby Rose Bege',
+          'Creme Hidratante Nivea 400ml',
+          'Batom Matte Avon Color Trend',
+          'Máscara Cilios Maybelline Sky High',
+          'Protetor Solar Episol FPS 60'
+        ],
+        shopee: [
+          'Sérum Vitamina C The Ordinary',
+          'Paleta Sombras 18 Cores Matte',
+          'Kit Pincéis Maquiagem 12 Peças',
+          'Óleo Argan Puro Natural 30ml',
+          'Espuma Limpeza Facial Neutrogena',
+          'Gloss Labial Transparente'
+        ]
+      }
+    };
+
+    const products = [];
+    let productCount = 0;
+
+    for (const platform of platforms) {
+      for (const category of categories) {
+        const templates = productTemplates[category]?.[platform] || productTemplates.electronics[platform];
+        const productsToGenerate = Math.min(Math.ceil(maxProducts / (platforms.length * categories.length)), templates.length);
+
+        for (let i = 0; i < productsToGenerate && productCount < maxProducts; i++) {
+          const template = templates[i % templates.length];
+          const basePrice = this.getBasePriceByCategory(category);
+          const price = basePrice + (Math.random() * basePrice * 0.5);
+          const originalPrice = price * (1.1 + Math.random() * 0.3);
+          const commissionRate = this.getCommissionRate(price);
+
+          products.push({
+            title: template,
+            price: Math.round(price * 100) / 100,
+            originalPrice: Math.round(originalPrice * 100) / 100,
+            discount: Math.round((originalPrice - price) * 100) / 100,
+            discountPercentage: Math.round(((originalPrice - price) / originalPrice) * 100),
+            platform: platform,
+            category: category,
+            productUrl: `https://${platform === 'mercadolivre' ? 'produto.mercadolivre.com.br/MLB' : 'shopee.com.br/product'}/${Date.now()}${i}`,
+            affiliateLink: `https://${platform === 'mercadolivre' ? 'produto.mercadolivre.com.br/MLB' : 'shopee.com.br/product'}/${Date.now()}${i}?ref=aff_${Math.random().toString(36).substr(2, 9)}`,
+            imageUrl: 'https://via.placeholder.com/300x300',
+            rating: Math.round((4 + Math.random()) * 10) / 10,
+            reviewsCount: Math.floor(Math.random() * 2000) + 100,
+            salesCount: Math.floor(Math.random() * 500) + 50,
+            commissionRate: commissionRate,
+            estimatedCommission: Math.round((price * commissionRate / 100) * 100) / 100,
+            commissionQuality: this.getCommissionQuality(commissionRate),
+            isApproved: false,
+            scrapedAt: new Date()
+          });
+
+          productCount++;
+        }
+      }
+    }
+
+    return products;
+  }
+
+  getBasePriceByCategory(category) {
+    const basePrices = {
+      electronics: 300,
+      beauty: 80,
+      home: 150,
+      fashion: 120,
+      sports: 200
+    };
+    return basePrices[category] || 100;
+  }
+
+  getCommissionRate(price) {
+    if (price > 1000) return 6 + Math.random() * 2;
+    if (price > 500) return 5 + Math.random() * 2;
+    if (price > 100) return 4 + Math.random() * 2;
+    return 3 + Math.random() * 2;
+  }
+
+  getCommissionQuality(rate) {
+    if (rate >= 7) return 'excelente';
+    if (rate >= 5) return 'boa';
+    if (rate >= 4) return 'regular';
+    return 'baixa';
+  }
+
   // Error handling
   initializeErrorHandling() {
     this.app.use((error, req, res, next) => {
@@ -499,7 +580,7 @@ class Server {
 
   // Verificar variáveis de ambiente
   checkEnvironmentVariables() {
-    const required = ['JWT_SECRET'];
+    const required = [];
     const missing = required.filter(key => !process.env[key]);
 
     if (missing.length > 0) {
@@ -520,6 +601,7 @@ class Server {
         console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
         console.log(`🕐 Horário: ${new Date().toLocaleString('pt-BR')}`);
         console.log(`🔗 Health: http://localhost:${this.port}/health`);
+        console.log('⚠️ Modo simulado - scrapers reais devem ser implementados');
       });
 
     } catch (error) {
