@@ -44,5 +44,15 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+
+    <div className="mb-4">
+      <h3>Teste de Navegação:</h3>
+      <button onClick={() => router.push('/products')} className="bg-blue-500 text-white px-4 py-2 rounded mr-2">
+        Ir para Produtos
+      </button>
+      <button onClick={() => router.push('/robot')} className="bg-green-500 text-white px-4 py-2 rounded">
+        Ir para Robô
+      </button>
+    </div>
   );
 }
