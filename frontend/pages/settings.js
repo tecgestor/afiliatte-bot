@@ -532,5 +532,5 @@ cp .env.example .env
 # Editar configurações
 nano .env
 
-# Configurações importantes:
-AUTHENTICATION_API
+Configurações importantes:
+AUTHENTICATION_API´}
