@@ -34,7 +34,7 @@ class AffiliateBot {
 
     // CORS
     const corsOptions = {
-      origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:3001'],
+      origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:3001', 'https://afiliatte-bot.vercel.app'],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
       credentials: true,
