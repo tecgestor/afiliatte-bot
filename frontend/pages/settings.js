@@ -522,15 +522,15 @@ export default function Settings() {
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 
-# Clone Evolution API
+/*Clone Evolution API*/
 git clone https://github.com/EvolutionAPI/evolution-api.git
 cd evolution-api
 
-# Configurar ambiente
+/*Configurar ambiente*/
 cp .env.example .env
 
-# Editar configurações
+/*Editar configurações*/
 nano .env
 
-# Configurações importantes:
+/*Configurações importantes:*/
 AUTHENTICATION_API´}
