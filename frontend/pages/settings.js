@@ -194,9 +194,6 @@ export default function Settings() {
                     </select>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Mensagens serão enviadas entre {robotConfig.sendingHours.start}h e {robotConfig.sendingHours.end}h
-                </p>
               </div>
 
               {/* Categorias */}
@@ -233,148 +230,6 @@ export default function Settings() {
                       <span className="ml-2 text-sm text-gray-700">{category.label}</span>
                     </label>
                   ))}
-                </div>
-              </div>
-
-              {/* Qualidade da Comissão */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-md font-medium text-gray-900 mb-4">⭐ Qualidade Mínima da Comissão</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { key: 'excelente', label: 'Excelente', color: 'text-green-600' },
-                    { key: 'boa', label: 'Boa', color: 'text-yellow-600' },
-                    { key: 'regular', label: 'Regular', color: 'text-orange-600' },
-                    { key: 'baixa', label: 'Baixa', color: 'text-red-600' }
-                  ].map((quality) => (
-                    <label key={quality.key} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={robotConfig.minCommissionQuality.includes(quality.key)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setRobotConfig(prev => ({
-                              ...prev,
-                              minCommissionQuality: [...prev.minCommissionQuality, quality.key]
-                            }));
-                          } else {
-                            setRobotConfig(prev => ({
-                              ...prev,
-                              minCommissionQuality: prev.minCommissionQuality.filter(q => q !== quality.key)
-                            }));
-                          }
-                        }}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                      <span className={`ml-2 text-sm ${quality.color}`}>{quality.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Configurações Avançadas */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-md font-medium text-gray-900 mb-4">🔧 Configurações Avançadas</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Mensagens por dia (máx)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="50"
-                      value={robotConfig.maxMessagesPerDay}
-                      onChange={(e) => setRobotConfig(prev => ({
-                        ...prev,
-                        maxMessagesPerDay: parseInt(e.target.value)
-                      }))}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Intervalo entre mensagens (min)</label>
-                    <input
-                      type="number"
-                      min="5"
-                      max="120"
-                      value={robotConfig.intervalBetweenMessages}
-                      onChange={(e) => setRobotConfig(prev => ({
-                        ...prev,
-                        intervalBetweenMessages: parseInt(e.target.value)
-                      }))}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Avaliação mínima</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="5"
-                      step="0.1"
-                      value={robotConfig.minRating}
-                      onChange={(e) => setRobotConfig(prev => ({
-                        ...prev,
-                        minRating: parseFloat(e.target.value)
-                      }))}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Vendas mínimas</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={robotConfig.minSales}
-                      onChange={(e) => setRobotConfig(prev => ({
-                        ...prev,
-                        minSales: parseInt(e.target.value)
-                      }))}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Switches */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-md font-medium text-gray-900 mb-4">🎛️ Opções Automáticas</h4>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Apenas produtos aprovados</p>
-                      <p className="text-xs text-gray-500">Enviar apenas produtos previamente aprovados</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={robotConfig.onlyApprovedProducts}
-                        onChange={(e) => setRobotConfig(prev => ({
-                          ...prev,
-                          onlyApprovedProducts: e.target.checked
-                        }))}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Aprovar automaticamente produtos excelentes</p>
-                      <p className="text-xs text-gray-500">Produtos com comissão excelente são aprovados automaticamente</p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={robotConfig.autoApproveExcellent}
-                        onChange={(e) => setRobotConfig(prev => ({
-                          ...prev,
-                          autoApproveExcellent: e.target.checked
-                        }))}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                    </label>
-                  </div>
                 </div>
               </div>
 
@@ -482,55 +337,81 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Modal Tutorial WhatsApp */}
+      {/* Modal Tutorial WhatsApp - Versão Simplificada */}
       <Modal
         isOpen={showWhatsAppModal}
         onClose={() => setShowWhatsAppModal(false)}
         title="📱 Tutorial: Configuração Evolution API + WhatsApp"
         size="xl"
       >
-        <div className="prose max-w-none">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h4 className="text-blue-800 font-semibold mb-2">🎯 O que você vai aprender:</h4>
+        <div className="space-y-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="text-blue-800 font-semibold mb-2">🎯 Resumo da Configuração:</h4>
             <ul className="text-blue-700 text-sm space-y-1">
-              <li>• Como instalar e configurar a Evolution API</li>
-              <li>• Conectar seu WhatsApp ao sistema</li>
-              <li>• Configurar webhooks e integrações</li>
+              <li>• Instalar Evolution API no servidor</li>
+              <li>• Conectar WhatsApp via QR Code</li>
+              <li>• Configurar webhooks no backend</li>
               <li>• Testar envios automáticos</li>
             </ul>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">1️⃣ Preparação</h3>
-              <div className="bg-gray-50 rounded-lg p-4 mt-2">
-                <p className="text-sm text-gray-700 mb-3">Você vai precisar de:</p>
-                <ul className="text-sm text-gray-600 space-y-1 ml-4">
-                  <li>• Um servidor VPS (pode ser gratuito)</li>
-                  <li>• Número de WhatsApp Business</li>
-                  <li>• Acesso SSH ao servidor</li>
-                </ul>
+              <h3 className="font-semibold text-gray-900">1. Instalar Evolution API</h3>
+              <div className="bg-gray-50 rounded p-3 mt-2">
+                <p className="text-sm">Execute em seu servidor VPS:</p>
+                <code className="block mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs">
+                  git clone https://github.com/EvolutionAPI/evolution-api.git<br/>
+                  cd evolution-api<br/>
+                  docker-compose up -d
+                </code>
               </div>
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">2️⃣ Instalação Evolution API</h3>
-              <div className="bg-gray-50 rounded-lg p-4 mt-2">
-                <p className="text-sm text-gray-700 mb-3">Execute os comandos no seu servidor:</p>
-                <pre className="bg-gray-800 text-green-400 p-3 rounded text-xs overflow-x-auto">
-{`# Instalar Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+              <h3 className="font-semibold text-gray-900">2. Configurar Variáveis</h3>
+              <div className="bg-gray-50 rounded p-3 mt-2">
+                <p className="text-sm">No Render, adicione:</p>
+                <code className="block mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs">
+                  WHATSAPP_API_URL=http://SEU-SERVIDOR:8080<br/>
+                  WHATSAPP_API_KEY=SUA-CHAVE-SECRETA<br/>
+                  WHATSAPP_INSTANCE_NAME=affiliate_bot
+                </code>
+              </div>
+            </div>
 
-/*Clone Evolution API*/
-git clone https://github.com/EvolutionAPI/evolution-api.git
-cd evolution-api
+            <div>
+              <h3 className="font-semibold text-gray-900">3. Conectar WhatsApp</h3>
+              <div className="bg-gray-50 rounded p-3 mt-2">
+                <ol className="text-sm space-y-1">
+                  <li>1. Acesse: http://SEU-SERVIDOR:8080/manager</li>
+                  <li>2. Criar instância: affiliate_bot</li>
+                  <li>3. Escanear QR Code com WhatsApp</li>
+                  <li>4. Aguardar status Connected</li>
+                </ol>
+              </div>
+            </div>
 
-/*Configurar ambiente*/
-cp .env.example .env
+            <div>
+              <h3 className="font-semibold text-gray-900">4. Configurar Grupos</h3>
+              <div className="bg-gray-50 rounded p-3 mt-2">
+                <p className="text-sm">
+                  Adicione o bot aos grupos desejados e use o menu Grupos 
+                  para cadastrar os IDs dos grupos WhatsApp.
+                </p>
+              </div>
+            </div>
+          </div>
 
-/*Editar configurações
-nano .env*/
-
-/*Configurações importantes:*/
-AUTHENTICATION_API´}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="text-green-800 font-semibold mb-2">✅ Resultado Final:</h4>
+            <p className="text-green-700 text-sm">
+              Após a configuração, o robô enviará mensagens automáticas 
+              para os grupos cadastrados seguindo os parâmetros definidos.
+            </p>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
