@@ -34,10 +34,18 @@ class AffiliateBot {
 
     // CORS
     const corsOptions = {
-      origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:3001', 'https://afiliatte-bot.vercel.app'],
+      origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:3001', 'https://afiliatte-bot.vercel.app', 'https://affiliate-bot-frontend.vercel.app'],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      allowedHeaders: [
+        'Origin',
+        'X-Requested-With', 
+        'Content-Type',
+        'Accept',
+        'Authorization',
+        'Cache-Control'
+      ],
       credentials: true,
+      optionsSuccessStatus: 200,
       maxAge: 86400
     };
     this.app.use(cors(corsOptions));
