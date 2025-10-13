@@ -7,6 +7,6 @@
     }
   ],
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://affiliate-bot-backend.onrender.com/api"
+    "NEXT_PUBLIC_API_URL": "https://affiliate-bot.onrender.com/api"
   }
 }
