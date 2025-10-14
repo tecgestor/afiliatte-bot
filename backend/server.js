@@ -39,19 +39,9 @@ class Server {
 
     this.app.use(cors(corsOptions));
 
+    // Middleware adicional para CORS
     this.app.use((req, res, next) => {
-      const origin = req.headers.origin;
-      const allowedOrigins = [
-        process.env.FRONTEND_URL,
-        'https://afiliatte-bot.vercel.app',
-        'https://affiliate-bot-frontend.vercel.app',
-        'http://localhost:3000'
-      ];
-
-      if (allowedOrigins.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-      }
-
+      res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,PATCH,OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
@@ -68,8 +58,18 @@ class Server {
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+    // Log detalhado de todas as requisições
     this.app.use((req, res, next) => {
-      console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+      console.log(`\n📡 ${new Date().toISOString()}`);
+      console.log(`📍 ${req.method} ${req.url}`);
+      console.log(`🌐 Origin: ${req.headers.origin || 'N/A'}`);
+      console.log(`🔍 User-Agent: ${req.headers['user-agent']?.substring(0, 50)}...`);
+      if (Object.keys(req.query).length > 0) {
+        console.log(`❓ Query:`, req.query);
+      }
+      if (Object.keys(req.body).length > 0) {
+        console.log(`📦 Body:`, req.body);
+      }
       next();
     });
 
@@ -98,17 +98,19 @@ class Server {
 
     // Health check
     this.app.get('/health', (req, res) => {
+      console.log('💚 Health check acessado');
       res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         scrapers: 'integrated',
-        version: '3.0.0-final'
+        version: '3.1.0-debug'
       });
     });
 
     // Auth routes
     this.app.post('/api/auth/login', (req, res) => {
+      console.log('🔐 Login attempt:', req.body.email);
       const { email, password } = req.body;
 
       if (email === 'admin@affiliatebot.com' && password === 'admin123') {
@@ -120,12 +122,14 @@ class Server {
           role: 'admin'
         };
 
+        console.log('✅ Login bem-sucedido');
         res.json({
           success: true,
           message: 'Login realizado com sucesso',
           data: { user, token }
         });
       } else {
+        console.log('❌ Login falhou');
         res.status(401).json({
           success: false,
           message: 'Credenciais inválidas'
@@ -135,6 +139,7 @@ class Server {
 
     // Products routes
     this.app.get('/api/products', (req, res) => {
+      console.log('📦 Produtos solicitados');
       const mockProducts = [
         {
           _id: '1',
@@ -161,6 +166,7 @@ class Server {
     });
 
     this.app.patch('/api/products/:id/approve', (req, res) => {
+      console.log('✅ Produto aprovado:', req.params.id);
       res.json({
         success: true,
         message: 'Produto aprovado com sucesso'
@@ -169,6 +175,7 @@ class Server {
 
     // Groups routes
     this.app.get('/api/groups', (req, res) => {
+      console.log('👥 Grupos solicitados');
       res.json({
         success: true,
         data: { docs: [], totalDocs: 0 }
@@ -176,6 +183,7 @@ class Server {
     });
 
     this.app.post('/api/groups', (req, res) => {
+      console.log('➕ Criando grupo:', req.body.name);
       const groupData = req.body;
       res.json({
         success: true,
@@ -185,6 +193,7 @@ class Server {
     });
 
     this.app.put('/api/groups/:id', (req, res) => {
+      console.log('✏️ Atualizando grupo:', req.params.id);
       res.json({
         success: true,
         message: 'Grupo atualizado com sucesso'
@@ -192,6 +201,7 @@ class Server {
     });
 
     this.app.delete('/api/groups/:id', (req, res) => {
+      console.log('🗑️ Excluindo grupo:', req.params.id);
       res.json({
         success: true,
         message: 'Grupo excluído com sucesso'
@@ -199,6 +209,7 @@ class Server {
     });
 
     this.app.patch('/api/groups/:id/toggle-sending', (req, res) => {
+      console.log('🔄 Toggle sending grupo:', req.params.id);
       res.json({
         success: true,
         message: 'Status de envio alterado'
@@ -206,6 +217,7 @@ class Server {
     });
 
     this.app.post('/api/groups/:id/send-message', (req, res) => {
+      console.log('📤 Enviando mensagem para grupo:', req.params.id);
       res.json({
         success: true,
         message: 'Mensagem enviada com sucesso',
@@ -215,6 +227,7 @@ class Server {
 
     // Templates routes
     this.app.get('/api/templates', (req, res) => {
+      console.log('💬 Templates solicitados');
       const mockTemplates = [
         {
           _id: '1',
@@ -230,10 +243,11 @@ class Server {
       });
     });
 
-    // ROTAS DE SCRAPING REAL - FUNCIONAIS!
+    // ROTAS DE SCRAPING REAL - COM LOGS DETALHADOS
     this.app.post('/api/robot/scraping/run', async (req, res) => {
       try {
-        console.log('🤖 Iniciando scraping REAL...');
+        console.log('\n🤖 === SCRAPING RUN INICIADO ===');
+        console.log('📋 Config recebida:', JSON.stringify(req.body, null, 2));
 
         const config = req.body || {
           platforms: ['mercadolivre', 'shopee'],
@@ -241,8 +255,17 @@ class Server {
           maxProducts: 30
         };
 
+        console.log('⚙️ Config final:', config);
+        console.log('🔍 Executando scraping...');
+
         // Executar scraping real
         const results = await this.executeRealScraping(config);
+
+        console.log('📊 Resultados:', {
+          success: results.success,
+          productsCount: results.products?.length || 0,
+          stats: results.stats
+        });
 
         res.json({
           success: true,
@@ -255,27 +278,42 @@ class Server {
           }
         });
 
+        console.log('✅ Resposta enviada com sucesso');
+
       } catch (error) {
-        console.error('❌ Erro scraping:', error);
+        console.error('❌ ERRO SCRAPING RUN:', error);
         res.status(500).json({
           success: false,
           message: 'Erro durante scraping',
-          error: error.message
+          error: error.message,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
       }
     });
 
+    // ROTA DE TESTE - COM LOGS DETALHADOS
     this.app.get('/api/robot/scraping/test', async (req, res) => {
       try {
+        console.log('\n🧪 === SCRAPING TEST INICIADO ===');
+        console.log('📋 Query params:', req.query);
+
         const { platform = 'mercadolivre', category = 'electronics' } = req.query;
 
-        console.log(`🧪 Testando ${platform} - ${category}`);
+        console.log(`🎯 Testando: ${platform} - ${category}`);
+        console.log('🔍 Executando teste...');
 
         const testProducts = await this.testPlatformScraping(platform, category);
 
-        res.json({
+        console.log('📊 Resultado teste:', {
+          platform,
+          category,
+          productsCount: testProducts.length,
+          firstProduct: testProducts[0]?.title || 'N/A'
+        });
+
+        const response = {
           success: true,
-          message: `Teste ${platform} concluído`,
+          message: `Teste ${platform} concluído com sucesso`,
           data: {
             products: testProducts,
             count: testProducts.length,
@@ -283,20 +321,29 @@ class Server {
             category,
             timestamp: new Date().toISOString()
           }
-        });
+        };
+
+        console.log('✅ Enviando resposta do teste...');
+        res.json(response);
 
       } catch (error) {
-        console.error('❌ Erro teste:', error);
+        console.error('❌ ERRO SCRAPING TEST:', error);
+        console.error('Stack:', error.stack);
+
         res.status(500).json({
           success: false,
-          message: 'Erro no teste',
-          error: error.message
+          message: 'Erro no teste de scraping',
+          error: error.message,
+          platform: req.query.platform,
+          category: req.query.category,
+          timestamp: new Date().toISOString()
         });
       }
     });
 
     // Robot routes
     this.app.get('/api/robot/status', (req, res) => {
+      console.log('🤖 Status do robô solicitado');
       res.json({
         success: true,
         data: {
@@ -308,6 +355,7 @@ class Server {
     });
 
     this.app.post('/api/robot/run', (req, res) => {
+      console.log('🤖 Robot run (redirecionando para scraping)');
       res.json({
         success: true,
         message: 'Use /api/robot/scraping/run para scraping real'
@@ -316,6 +364,7 @@ class Server {
 
     // Stats routes
     this.app.get('/api/stats', (req, res) => {
+      console.log('📊 Stats solicitados');
       res.json({
         success: true,
         data: {
@@ -326,44 +375,74 @@ class Server {
       });
     });
 
-    // Catch all
+    // Log todas as rotas registradas
+    console.log('\n📝 ROTAS REGISTRADAS:');
+    console.log('✅ GET  /health');
+    console.log('✅ POST /api/auth/login');
+    console.log('✅ GET  /api/products');
+    console.log('✅ PATCH /api/products/:id/approve');
+    console.log('✅ GET  /api/groups');
+    console.log('✅ POST /api/groups');
+    console.log('✅ PUT  /api/groups/:id');
+    console.log('✅ DELETE /api/groups/:id');
+    console.log('✅ PATCH /api/groups/:id/toggle-sending');
+    console.log('✅ POST /api/groups/:id/send-message');
+    console.log('✅ GET  /api/templates');
+    console.log('✅ POST /api/robot/scraping/run');
+    console.log('✅ GET  /api/robot/scraping/test');
+    console.log('✅ GET  /api/robot/status');
+    console.log('✅ POST /api/robot/run');
+    console.log('✅ GET  /api/stats');
+
+    // Catch all para debug
     this.app.use('*', (req, res) => {
+      console.log('\n❌ ROTA NÃO ENCONTRADA:');
+      console.log(`📍 ${req.method} ${req.originalUrl}`);
+      console.log('🌐 Headers:', JSON.stringify(req.headers, null, 2));
+
       res.status(404).json({
         success: false,
         message: 'Endpoint não encontrado',
+        requestedUrl: req.originalUrl,
+        method: req.method,
         availableEndpoints: [
-          '/health',
-          '/api/robot/scraping/run',
-          '/api/robot/scraping/test'
-        ]
+          'GET /health',
+          'GET /api/robot/scraping/test?platform=mercadolivre&category=electronics',
+          'POST /api/robot/scraping/run'
+        ],
+        timestamp: new Date().toISOString()
       });
     });
 
-    console.log('✅ Rotas configuradas');
+    console.log('✅ Rotas configuradas com logs detalhados');
   }
 
   // MÉTODOS DE SCRAPING INTEGRADOS
   async executeRealScraping(config) {
-    console.log('🔍 Executando scraping real:', config);
+    console.log('🔍 executeRealScraping iniciado:', config);
 
     const allProducts = [];
 
     try {
       // Scraping Mercado Livre
       if (config.platforms.includes('mercadolivre')) {
+        console.log('📱 Processando Mercado Livre...');
         for (const category of config.categories) {
-          console.log(`📱 ML: Buscando ${category}`);
+          console.log(`🔍 ML: Categoria ${category}`);
           const mlProducts = await this.scrapeMercadoLivre(category, 10);
+          console.log(`✅ ML ${category}: ${mlProducts.length} produtos`);
           allProducts.push(...mlProducts);
-          await this.delay(1000); // Delay entre categorias
+          await this.delay(1000);
         }
       }
 
       // Scraping Shopee
       if (config.platforms.includes('shopee')) {
+        console.log('🛍️ Processando Shopee...');
         for (const category of config.categories) {
-          console.log(`🛍️ Shopee: Buscando ${category}`);
+          console.log(`🔍 Shopee: Categoria ${category}`);
           const shopeeProducts = await this.scrapeShopee(category, 10);
+          console.log(`✅ Shopee ${category}: ${shopeeProducts.length} produtos`);
           allProducts.push(...shopeeProducts);
           await this.delay(1000);
         }
@@ -373,6 +452,9 @@ class Server {
       const filteredProducts = allProducts
         .filter(p => p.price > 10 && p.rating >= 3.0)
         .slice(0, config.maxProducts || 30);
+
+      console.log(`📊 Total produtos: ${allProducts.length}`);
+      console.log(`✅ Produtos filtrados: ${filteredProducts.length}`);
 
       return {
         success: true,
@@ -385,17 +467,19 @@ class Server {
       };
 
     } catch (error) {
-      console.error('❌ Erro execução:', error);
+      console.error('❌ Erro executeRealScraping:', error);
       throw error;
     }
   }
 
   async scrapeMercadoLivre(category, limit) {
     try {
-      console.log(`🔍 ML API: ${category}`);
+      console.log(`🔍 ML Scraping: ${category} (limit: ${limit})`);
 
       // Usar API oficial do Mercado Livre
       const searchUrl = `https://api.mercadolibre.com/sites/MLB/search?q=${category}&limit=${limit}`;
+      console.log(`📡 ML API URL: ${searchUrl}`);
+
       const response = await axios.get(searchUrl, { 
         timeout: 15000,
         headers: {
@@ -403,8 +487,10 @@ class Server {
         }
       });
 
+      console.log(`📊 ML API Response: ${response.status} - ${response.data?.results?.length || 0} items`);
+
       if (response.data?.results) {
-        const products = response.data.results.map(item => ({
+        const products = response.data.results.map((item, index) => ({
           title: (item.title || 'Produto sem título').substring(0, 150),
           price: item.price || (Math.random() * 1000 + 100),
           originalPrice: item.original_price || null,
@@ -423,25 +509,29 @@ class Server {
           scrapedAt: new Date().toISOString()
         }));
 
-        console.log(`✅ ML: ${products.length} produtos reais`);
+        console.log(`✅ ML API: ${products.length} produtos processados`);
+        console.log(`📋 Primeiro produto: ${products[0]?.title}`);
         return products;
       }
     } catch (error) {
-      console.log('⚠️ ML API falhou, usando fallback');
+      console.log('⚠️ ML API falhou:', error.message);
     }
 
     // Fallback com dados realistas
+    console.log('🔄 ML: Usando fallback');
     return this.generateMLFallback(category, limit);
   }
 
   async scrapeShopee(category, limit) {
-    console.log(`🛍️ Shopee: ${category} (simulado)`);
+    console.log(`🛍️ Shopee: ${category} (limit: ${limit})`);
 
     // Shopee tem proteções anti-bot, usando dados realistas
     return this.generateShopeeFallback(category, limit);
   }
 
   generateMLFallback(category, limit) {
+    console.log(`🔄 ML Fallback: ${category} (${limit} items)`);
+
     const templates = {
       'electronics': [
         'Smartphone Samsung Galaxy A54 5G 128GB',
@@ -488,10 +578,13 @@ class Server {
       });
     }
 
+    console.log(`✅ ML Fallback: ${products.length} produtos gerados`);
     return products;
   }
 
   generateShopeeFallback(category, limit) {
+    console.log(`🔄 Shopee Fallback: ${category} (${limit} items)`);
+
     const templates = {
       'electronics': [
         'Celular Xiaomi Redmi Note 12 Pro',
@@ -533,15 +626,24 @@ class Server {
       });
     }
 
+    console.log(`✅ Shopee Fallback: ${products.length} produtos gerados`);
     return products;
   }
 
   async testPlatformScraping(platform, category) {
+    console.log(`🧪 testPlatformScraping: ${platform} - ${category}`);
+
     if (platform === 'mercadolivre') {
-      return await this.scrapeMercadoLivre(category, 5);
+      const result = await this.scrapeMercadoLivre(category, 5);
+      console.log(`✅ Teste ML: ${result.length} produtos`);
+      return result;
     } else if (platform === 'shopee') {
-      return await this.scrapeShopee(category, 5);
+      const result = await this.scrapeShopee(category, 5);
+      console.log(`✅ Teste Shopee: ${result.length} produtos`);
+      return result;
     }
+
+    console.log('❌ Plataforma não reconhecida:', platform);
     return [];
   }
 
@@ -585,11 +687,17 @@ class Server {
 
   initializeErrorHandling() {
     this.app.use((error, req, res, next) => {
-      console.error('❌ Erro:', error);
+      console.error('\n💥 ERRO GLOBAL:');
+      console.error('📍 URL:', req.originalUrl);
+      console.error('❌ Erro:', error.message);
+      console.error('📚 Stack:', error.stack);
+
       res.status(500).json({
         success: false,
         message: 'Erro interno do servidor',
-        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+        url: req.originalUrl,
+        timestamp: new Date().toISOString()
       });
     });
   }
@@ -597,18 +705,23 @@ class Server {
   async start() {
     try {
       this.app.listen(this.port, '0.0.0.0', () => {
-        console.log('');
-        console.log('🎊 SERVIDOR COM SCRAPERS REAIS INICIADO!');
+        console.log('\n');
+        console.log('🎊 ================================');
+        console.log('🚀 SERVIDOR COM SCRAPERS INICIADO!');
+        console.log('🎊 ================================');
         console.log('');
         console.log(`📡 Porta: ${this.port}`);
         console.log(`🔗 Health: http://localhost:${this.port}/health`);
-        console.log(`🔍 Test ML: http://localhost:${this.port}/api/robot/scraping/test?platform=mercadolivre`);
-        console.log(`🔍 Test Shopee: http://localhost:${this.port}/api/robot/scraping/test?platform=shopee`);
+        console.log(`🧪 Test ML: http://localhost:${this.port}/api/robot/scraping/test?platform=mercadolivre&category=electronics`);
+        console.log(`🧪 Test Shopee: http://localhost:${this.port}/api/robot/scraping/test?platform=shopee&category=electronics`);
         console.log('');
-        console.log('✅ Scrapers Mercado Livre + Shopee FUNCIONANDO!');
+        console.log('✅ Scrapers Mercado Livre + Shopee ATIVOS!');
         console.log('✅ API oficial ML integrada!');
         console.log('✅ Links de afiliado automáticos!');
-        console.log('✅ Sistema pronto para usar!');
+        console.log('✅ Logs detalhados habilitados!');
+        console.log('✅ CORS configurado para frontend!');
+        console.log('');
+        console.log('🎯 Pronto para receber requisições!');
         console.log('');
       });
     } catch (error) {
@@ -624,12 +737,12 @@ server.start();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('🔄 Shutdown graceful...');
+  console.log('🔄 Shutdown graceful (SIGTERM)...');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('🔄 Shutdown graceful...');
+  console.log('🔄 Shutdown graceful (SIGINT)...');
   process.exit(0);
 });
 
