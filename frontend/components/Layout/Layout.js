@@ -34,7 +34,7 @@ const Layout = ({ children, title = 'Affiliate Bot' }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 ml-60 flex-1 p-6">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       <div className="flex flex-col w-0 flex-1 overflow-hidden">
         <Header title={title} setSidebarOpen={setSidebarOpen} />
