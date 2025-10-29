@@ -46,54 +46,54 @@ api.interceptors.response.use(
 // Auth API
 export const authAPI = {
   login: (credentials) => api.post('/api/auth/login', credentials),
-  register: (userData) => api.post('/auth/register', userData),
-  getProfile: () => api.get('/users/profile')
+  register: (userData) => api.post('/api/auth/register', userData),
+  getProfile: () => api.get('/api/users/profile')
 };
 
 // Products API
 export const productsAPI = {
-  getAll: (params) => api.get('/products', { params }),
-  getById: (id) => api.get(`/products/${id}`),
-  create: (data) => api.post('/products', data),
-  update: (id, data) => api.put(`/products/${id}`, data),
-  approve: (id) => api.patch(`/products/${id}/approve`),
-  delete: (id) => api.delete(`/products/${id}`)
+  getAll: (params) => api.get('/api/products', { params }),
+  getById: (id) => api.get(`/api/products/${id}`),
+  create: (data) => api.post('/api/products', data),
+  update: (id, data) => api.put(`/api/products/${id}`, data),
+  approve: (id) => api.patch(`/api/products/${id}/approve`),
+  delete: (id) => api.delete(`/api/products/${id}`)
 };
 
 // Groups API  
 export const groupsAPI = {
-  getAll: (params) => api.get('/groups', { params }),
-  getById: (id) => api.get(`/groups/${id}`),
-  create: (data) => api.post('/groups', data),
-  update: (id, data) => api.put(`/groups/${id}`, data),
-  toggleSending: (id) => api.patch(`/groups/${id}/toggle-sending`),
-  delete: (id) => api.delete(`/groups/${id}`)
+  getAll: (params) => api.get('/api/groups', { params }),
+  getById: (id) => api.get(`/api/groups/${id}`),
+  create: (data) => api.post('/api/groups', data),
+  update: (id, data) => api.put(`/api/groups/${id}`, data),
+  toggleSending: (id) => api.patch(`/api/groups/${id}/toggle-sending`),
+  delete: (id) => api.delete(`/api/groups/${id}`)
 };
 
 // Templates API
 export const templatesAPI = {
-  getAll: (params) => api.get('/templates', { params }),
-  getById: (id) => api.get(`/templates/${id}`),
-  create: (data) => api.post('/templates', data),
-  update: (id, data) => api.put(`/templates/${id}`, data),
-  delete: (id) => api.delete(`/templates/${id}`),
-  process: (id, variables) => api.post(`/templates/${id}/process`, { variables })
+  getAll: (params) => api.get('/api/templates', { params }),
+  getById: (id) => api.get(`/api/templates/${id}`),
+  create: (data) => api.post('/api/templates', data),
+  update: (id, data) => api.put(`/api/templates/${id}`, data),
+  delete: (id) => api.delete(`/api/templates/${id}`),
+  process: (id, variables) => api.post(`/api/templates/${id}/process`, { variables })
 };
 
 // History API
 export const historyAPI = {
-  getAll: (params) => api.get('/history', { params }),
-  getFiltered: (params) => api.get('/history/filtered', { params }),
-  getStats: (params) => api.get('/history/stats/engagement', { params })
+  getAll: (params) => api.get('/api/history', { params }),
+  getFiltered: (params) => api.get('/api/history/filtered', { params }),
+  getStats: (params) => api.get('/api/history/stats/engagement', { params })
 };
 
 // Robot API
 export const robotAPI = {
-  getStatus: () => api.get('/robot/status'),
-  run: (options) => api.post('/robot/run', options),
-  stop: () => api.post('/robot/stop'),
-  getWhatsAppStatus: () => api.get('/robot/whatsapp/status'),
-  runScraping: (options) => api.post('/robot/scraping/run', options)
+  getStatus: () => api.get('/api/robot/status'),
+  run: (options) => api.post('/api/robot/run', options),
+  stop: () => api.post('/api/robot/stop'),
+  getWhatsAppStatus: () => api.get('/api/robot/whatsapp/status'),
+  runScraping: (options) => api.post('/api/robot/scraping/run', options)
 };
 
 // General API
