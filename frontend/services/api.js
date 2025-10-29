@@ -2,7 +2,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://affiliate-bot.onrender.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://affiliate-bot.onrender.com/api';
 console.log('🔗 API_URL configurada:', API_URL);
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -47,12 +47,12 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => api.post('/api/auth/login', credentials),
   register: (userData) => api.post('/api/auth/register', userData),
-  getProfile: () => api.get('/users/profile')
+  getProfile: () => api.get('/api/users/profile')
 };
 
 // Products API
 export const productsAPI = {
-  getAll: (params) => api.get('/products', { params }),
+  getAll: (params) => api.get('/api/products', { params }),
   getById: (id) => api.get(`/products/${id}`),
   create: (data) => api.post('/products', data),
   update: (id, data) => api.put(`/products/${id}`, data),
