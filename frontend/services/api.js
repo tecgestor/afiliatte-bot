@@ -3,7 +3,7 @@ import { toast } from 'react-hot-toast';
 import Cookies from 'js-cookie';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://affiliate-bot.onrender.com/api';
-console.log('🔗 API_URL configurada:', API_URL);
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
