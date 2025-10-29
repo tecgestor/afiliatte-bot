@@ -3,7 +3,7 @@ import { toast } from 'react-hot-toast';
 import Cookies from 'js-cookie';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://affiliate-bot.onrender.com';
-
+console.log('🔗 API_URL configurada:', API_URL);
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
@@ -45,8 +45,8 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  login: (credentials) => api.post('/auth/login', credentials),
-  register: (userData) => api.post('/auth/register', userData),
+  login: (credentials) => api.post('/api/auth/login', credentials),
+  register: (userData) => api.post('/api/auth/register', userData),
   getProfile: () => api.get('/users/profile')
 };
 
@@ -98,8 +98,8 @@ export const robotAPI = {
 
 // General API
 export const generalAPI = {
-  getStats: () => api.get('/stats'),
-  getHealth: () => api.get('/health')
+  getStats: () => api.get('/api/stats'),
+  getHealth: () => api.get('/api/health')
 };
 
 export default api;
