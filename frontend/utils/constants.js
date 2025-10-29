@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'https://afiliatte-bot.onrender.com/api',
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'https://afiliatte-bot.onrender.com',
   TIMEOUT: 30000,
 };
 
