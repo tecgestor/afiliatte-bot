@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://afiliatte-bot.onrender.com/api',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://afiliatte-bot.onrender.com',
     NEXT_PUBLIC_APP_NAME: 'Affiliate Bot',
   },
   async redirects() {
